@@ -1,0 +1,695 @@
+{
+  "info": {
+    "name": "Yatrivo Backend API",
+    "description": "Complete API collection for Yatrivo backend including Authentication and Admin Content Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "destinationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "packageId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "SignUp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.data.token);",
+                  "    pm.collectionVariables.set('userId', response.data.user.uid);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test User\",\n  \"mobileNumber\": \"9876543210\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "signup"]
+            },
+            "description": "Register a new user account with full name, mobile number, email, and password"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.data.token);",
+                  "    pm.collectionVariables.set('userId', response.data.user.uid);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth"]
+            },
+            "description": "Authenticate user with email and password"
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "forgot-password"]
+            },
+            "description": "Send password reset email"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/delete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "delete"]
+            },
+            "description": "Delete user account (requires authentication)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Trip Categories",
+      "item": [
+        {
+          "name": "Create Trip Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('categoryId', response.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Honeymoon",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/trip-categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "trip-categories"]
+            },
+            "description": "Create a new trip category with name and image"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Trip Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/trip-categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "trip-categories"]
+            },
+            "description": "Get all trip categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Trip Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
+            },
+            "description": "Get a specific trip category by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Trip Category",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Adventure",
+                  "type": "text",
+                  "description": "Optional: New category name"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional: New image file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
+            },
+            "description": "Update trip category name and/or image"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Trip Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
+            },
+            "description": "Delete trip category and its image"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Destinations",
+      "item": [
+        {
+          "name": "Create Destination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('destinationId', response.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "placeName",
+                  "value": "Taj Mahal",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "Agra",
+                  "type": "text"
+                },
+                {
+                  "key": "tripCategoryId",
+                  "value": "{{categoryId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations"]
+            },
+            "description": "Create a new destination with place name, city, category, and image"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Destinations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations"]
+            },
+            "description": "Get all destinations"
+          },
+          "response": []
+        },
+        {
+          "name": "List Destinations by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations?categoryId={{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations"],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            },
+            "description": "Filter destinations by trip category"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Destination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations", "{{destinationId}}"]
+            },
+            "description": "Get a specific destination by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Destination",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "placeName",
+                  "value": "Gateway of India",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "city",
+                  "value": "Mumbai",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "tripCategoryId",
+                  "value": "{{categoryId}}",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional: New image"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations", "{{destinationId}}"]
+            },
+            "description": "Update destination details"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Destination",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "destinations", "{{destinationId}}"]
+            },
+            "description": "Delete destination and its image"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Tour Packages",
+      "item": [
+        {
+          "name": "Create Tour Package",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('packageId', response.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "placeName",
+                  "value": "Romantic Goa Getaway",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "Goa",
+                  "type": "text"
+                },
+                {
+                  "key": "priceRange",
+                  "value": "₹35,000 - ₹50,000",
+                  "type": "text"
+                },
+                {
+                  "key": "tripCategoryId",
+                  "value": "{{categoryId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "overview",
+                  "value": "Experience the beautiful beaches of Goa with your loved one. This package includes luxurious accommodation, romantic candlelight dinners, and exciting water sports activities.",
+                  "type": "text"
+                },
+                {
+                  "key": "tourHighlights",
+                  "value": "[\"Beach Access\",\"Water Sports\",\"Candlelight Dinner\",\"5★ Resort\",\"Airport Transfers\"]",
+                  "type": "text",
+                  "description": "JSON array of highlights"
+                },
+                {
+                  "key": "image0",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "image1",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "image2",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages"]
+            },
+            "description": "Create a new tour package with multiple images"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Tour Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages"]
+            },
+            "description": "Get all tour packages"
+          },
+          "response": []
+        },
+        {
+          "name": "List Packages by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages?categoryId={{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages"],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            },
+            "description": "Filter packages by trip category"
+          },
+          "response": []
+        },
+        {
+          "name": "List Packages by City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages?city=Goa",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Goa"
+                }
+              ]
+            },
+            "description": "Filter packages by city"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Tour Package",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages", "{{packageId}}"]
+            },
+            "description": "Get a specific tour package by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tour Package",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "placeName",
+                  "value": "Updated Package Name",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "city",
+                  "value": "Goa",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "priceRange",
+                  "value": "₹40,000 - ₹55,000",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "tripCategoryId",
+                  "value": "{{categoryId}}",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "overview",
+                  "value": "Updated overview text",
+                  "type": "text",
+                  "description": "Optional"
+                },
+                {
+                  "key": "tourHighlights",
+                  "value": "[\"New Highlight 1\",\"New Highlight 2\"]",
+                  "type": "text",
+                  "description": "Optional: JSON array"
+                },
+                {
+                  "key": "newImage0",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional: Add new images"
+                },
+                {
+                  "key": "newImage1",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional: Add new images"
+                },
+                {
+                  "key": "imagesToRemove",
+                  "value": "[]",
+                  "type": "text",
+                  "description": "Optional: JSON array of image URLs to remove"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages", "{{packageId}}"]
+            },
+            "description": "Update tour package with optional image add/remove"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Tour Package",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tour-packages", "{{packageId}}"]
+            },
+            "description": "Delete tour package and all its images"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -36,9 +36,11 @@ export default function Sidebar() {
       >
         <div className="flex h-full flex-col">
           <div className="flex h-16 items-center border-b border-gray-200 px-6 dark:border-gray-700">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Yatrivo
-            </h1>
+            <Link href="/dashboard" className="cursor-pointer">
+              <h1 className="text-xl font-bold text-gray-900 hover:text-gray-700 dark:text-white dark:hover:text-gray-300 transition-colors">
+                Yatrivo
+              </h1>
+            </Link>
             <button 
               className="ml-auto lg:hidden"
               onClick={toggleSidebar}

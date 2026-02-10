@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import type { LoginRequest, AuthResponse } from "@/types/user";
 
 // POST /api/auth - Login endpoint
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: LoginRequest = await request.json();
     const { email, password } = body;
 
     // Validate input
@@ -12,37 +16,84 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: "Email and password are required",
-        },
+        } as AuthResponse,
         { status: 400 }
       );
     }
 
-    // Mock authentication - replace with actual authentication logic
-    // Check credentials against database
-    const user = {
-      id: "1",
+    // Authenticate with Firebase
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
       email,
-      name: "John Doe",
-    };
+      password
+    );
+    const user = userCredential.user;
 
-    // Generate token (use proper JWT implementation in production)
-    const token = "mock-jwt-token";
+    // Get user profile from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        user,
-        token,
-      },
-      message: "Login successful",
-    });
-  } catch (error) {
+    if (!userDoc.exists()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User profile not found",
+        } as AuthResponse,
+        { status: 404 }
+      );
+    }
+
+    const userProfile = userDoc.data();
+
+    // Get ID token
+    const token = await user.getIdToken();
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          user: {
+            uid: user.uid,
+            fullName: userProfile.fullName,
+            mobileNumber: userProfile.mobileNumber,
+            email: userProfile.email,
+            createdAt: userProfile.createdAt?.toDate() || new Date(),
+            updatedAt: userProfile.updatedAt?.toDate() || new Date(),
+          },
+          token,
+        },
+        message: "Login successful",
+      } as AuthResponse,
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Login error:", error);
+
+    // Handle Firebase specific errors
+    let errorMessage = "Authentication failed";
+    let statusCode = 401;
+
+    if (error.code === "auth/user-not-found") {
+      errorMessage = "User not found";
+      statusCode = 404;
+    } else if (error.code === "auth/wrong-password") {
+      errorMessage = "Invalid email or password";
+    } else if (error.code === "auth/invalid-email") {
+      errorMessage = "Invalid email address";
+    } else if (error.code === "auth/user-disabled") {
+      errorMessage = "User account has been disabled";
+      statusCode = 403;
+    } else if (error.code === "auth/too-many-requests") {
+      errorMessage = "Too many failed login attempts. Please try again later";
+      statusCode = 429;
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: "Authentication failed",
-      },
-      { status: 500 }
+        error: errorMessage,
+      } as AuthResponse,
+      { status: statusCode }
     );
   }
 }
