@@ -1,7 +1,5 @@
 // Admin content management types for tour packages, destinations, and trip categories
 
-import { Timestamp } from "firebase/firestore";
-
 // Trip Category Types
 export interface TripCategory {
     id: string;
@@ -11,12 +9,12 @@ export interface TripCategory {
     updatedAt: Date;
 }
 
-export interface TripCategoryFirestore {
+export interface TripCategoryDatabase {
     id: string;
     name: string;
     imageUrl: string;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: string; // ISO 8601 timestamp string from Supabase
+    updatedAt: string; // ISO 8601 timestamp string from Supabase
 }
 
 export interface CreateTripCategoryRequest {
@@ -41,15 +39,15 @@ export interface Destination {
     updatedAt: Date;
 }
 
-export interface DestinationFirestore {
+export interface DestinationDatabase {
     id: string;
     placeName: string;
     city: string;
     imageUrl: string;
     tripCategoryId: string;
     tripCategoryName: string;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: string; // ISO 8601 timestamp string from Supabase
+    updatedAt: string; // ISO 8601 timestamp string from Supabase
 }
 
 export interface CreateDestinationRequest {
@@ -81,7 +79,7 @@ export interface TourPackage {
     updatedAt: Date;
 }
 
-export interface TourPackageFirestore {
+export interface TourPackageDatabase {
     id: string;
     placeName: string;
     city: string;
@@ -91,8 +89,8 @@ export interface TourPackageFirestore {
     imageUrls: string[];
     overview: string;
     tourHighlights: string[];
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: string; // ISO 8601 timestamp string from Supabase
+    updatedAt: string; // ISO 8601 timestamp string from Supabase
 }
 
 export interface CreateTourPackageRequest {

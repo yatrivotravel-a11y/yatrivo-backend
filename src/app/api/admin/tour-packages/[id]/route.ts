@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 import {
-    doc,
-    getDoc,
-    updateDoc,
-    deleteDoc,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import {
-    uploadImage,
-    deleteImage,
+    uploadMultipleImages,
     deleteMultipleImages,
+    deleteImage,
     generateUniqueFilename,
     isValidImageType,
 } from "@/lib/storage";
@@ -19,13 +12,17 @@ import type { AdminApiResponse, TourPackage } from "@/types/admin";
 // GET /api/admin/tour-packages/[id] - Get single tour package
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
-        const packageDoc = await getDoc(doc(db, "tourPackages", id));
+        const { id } = await params;
+        const { data: pkg, error } = await supabaseAdmin
+            .from("tour_packages")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-        if (!packageDoc.exists()) {
+        if (error || !pkg) {
             return NextResponse.json(
                 {
                     success: false,
@@ -35,25 +32,22 @@ export async function GET(
             );
         }
 
-        const data = packageDoc.data();
-        const tourPackage: TourPackage = {
-            id: packageDoc.id,
-            placeName: data.placeName,
-            city: data.city,
-            priceRange: data.priceRange,
-            tripCategoryId: data.tripCategoryId,
-            tripCategoryName: data.tripCategoryName,
-            imageUrls: data.imageUrls || [],
-            overview: data.overview,
-            tourHighlights: data.tourHighlights || [],
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-
         return NextResponse.json(
             {
                 success: true,
-                data: tourPackage,
+                data: {
+                    id: pkg.id,
+                    placeName: pkg.place_name,
+                    city: pkg.city,
+                    priceRange: pkg.price_range,
+                    tripCategoryId: pkg.trip_category_id,
+                    tripCategoryName: pkg.trip_category_name,
+                    imageUrls: pkg.image_urls || [],
+                    overview: pkg.overview,
+                    tourHighlights: pkg.tour_highlights || [],
+                    createdAt: new Date(pkg.created_at),
+                    updatedAt: new Date(pkg.updated_at),
+                } as TourPackage,
             } as AdminApiResponse<TourPackage>,
             { status: 200 }
         );
@@ -72,12 +66,11 @@ export async function GET(
 // PUT /api/admin/tour-packages/[id] - Update tour package
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const formData = await request.formData();
-
         const placeName = formData.get("placeName") as string | null;
         const city = formData.get("city") as string | null;
         const priceRange = formData.get("priceRange") as string | null;
@@ -86,7 +79,7 @@ export async function PUT(
         const tourHighlightsStr = formData.get("tourHighlights") as string | null;
         const imagesToRemoveStr = formData.get("imagesToRemove") as string | null;
 
-        // Get new images to add
+        // Get new images
         const newImageFiles: File[] = [];
         let imageIndex = 0;
         while (true) {
@@ -97,8 +90,13 @@ export async function PUT(
         }
 
         // Check if package exists
-        const packageDoc = await getDoc(doc(db, "tourPackages", id));
-        if (!packageDoc.exists()) {
+        const { data: existingPkg, error: fetchError } = await supabaseAdmin
+            .from("tour_packages")
+            .select("*")
+            .eq("id", id)
+            .single();
+
+        if (fetchError || !existingPkg) {
             return NextResponse.json(
                 {
                     success: false,
@@ -108,11 +106,8 @@ export async function PUT(
             );
         }
 
-        const updateData: any = {
-            updatedAt: serverTimestamp(),
-        };
+        const updateData: any = {};
 
-        // Update text fields
         if (placeName) {
             if (placeName.trim().length < 2 || placeName.trim().length > 100) {
                 return NextResponse.json(
@@ -123,7 +118,7 @@ export async function PUT(
                     { status: 400 }
                 );
             }
-            updateData.placeName = placeName.trim();
+            updateData.place_name = placeName.trim();
         }
 
         if (city) {
@@ -131,7 +126,7 @@ export async function PUT(
         }
 
         if (priceRange) {
-            updateData.priceRange = priceRange.trim();
+            updateData.price_range = priceRange.trim();
         }
 
         if (overview) {
@@ -147,14 +142,13 @@ export async function PUT(
             updateData.overview = overview.trim();
         }
 
-        // Update tour highlights
         if (tourHighlightsStr) {
             try {
-                const tourHighlights = JSON.parse(tourHighlightsStr);
-                if (!Array.isArray(tourHighlights)) {
-                    throw new Error("Tour highlights must be an array");
+                const highlights = JSON.parse(tourHighlightsStr);
+                if (!Array.isArray(highlights)) {
+                    throw new Error("Must be an array");
                 }
-                updateData.tourHighlights = tourHighlights;
+                updateData.tour_highlights = highlights;
             } catch (error) {
                 return NextResponse.json(
                     {
@@ -166,10 +160,14 @@ export async function PUT(
             }
         }
 
-        // Update trip category
         if (tripCategoryId) {
-            const categoryDoc = await getDoc(doc(db, "tripCategories", tripCategoryId));
-            if (!categoryDoc.exists()) {
+            const { data: category, error: catError } = await supabaseAdmin
+                .from("trip_categories")
+                .select("*")
+                .eq("id", tripCategoryId)
+                .single();
+
+            if (catError || !category) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -178,23 +176,21 @@ export async function PUT(
                     { status: 400 }
                 );
             }
-            updateData.tripCategoryId = tripCategoryId;
-            updateData.tripCategoryName = categoryDoc.data().name;
+            updateData.trip_category_id = tripCategoryId;
+            updateData.trip_category_name = category.name;
         }
 
-        // Handle image operations
-        let currentImageUrls = packageDoc.data().imageUrls || [];
+        // Handle image updates
+        let currentImageUrls = [...(existingPkg.image_urls || [])];
 
-        // Remove images if specified
+        // Remove images if requested
         if (imagesToRemoveStr) {
             try {
                 const imagesToRemove: string[] = JSON.parse(imagesToRemoveStr);
                 if (Array.isArray(imagesToRemove) && imagesToRemove.length > 0) {
-                    // Delete from storage
                     await deleteMultipleImages(imagesToRemove);
-                    // Remove from array
                     currentImageUrls = currentImageUrls.filter(
-                        (url: string) => !imagesToRemove.includes(url)
+                        (url) => !imagesToRemove.includes(url)
                     );
                 }
             } catch (error) {
@@ -202,70 +198,66 @@ export async function PUT(
             }
         }
 
-        // Add new images if provided
+        // Add new images
         if (newImageFiles.length > 0) {
-            // Validate new images
-            for (const imageFile of newImageFiles) {
-                if (!isValidImageType(imageFile.name)) {
+            for (const file of newImageFiles) {
+                if (!isValidImageType(file.name)) {
                     return NextResponse.json(
                         {
                             success: false,
-                            error: `Invalid image type for ${imageFile.name}`,
+                            error: `Invalid image type for ${file.name}`,
                         } as AdminApiResponse,
                         { status: 400 }
                     );
                 }
-
-                if (imageFile.size > 5 * 1024 * 1024) {
+                if (file.size > 5 * 1024 * 1024) {
                     return NextResponse.json(
                         {
                             success: false,
-                            error: `Image ${imageFile.name} exceeds 5MB limit`,
+                            error: `Image ${file.name} exceeds 5MB`,
                         } as AdminApiResponse,
                         { status: 400 }
                     );
                 }
             }
 
-            // Upload new images
-            const uploadPromises = newImageFiles.map(async (file) => {
-                const imageBuffer = await file.arrayBuffer();
-                const fileName = generateUniqueFilename(file.name);
-                const storagePath = `tour-packages/${id}/${fileName}`;
-                return uploadImage(Buffer.from(imageBuffer), storagePath);
-            });
-
-            const newImageUrls = await Promise.all(uploadPromises);
+            const imageBuffers = await Promise.all(
+                newImageFiles.map((file) => file.arrayBuffer())
+            );
+            const imageBlobs = imageBuffers.map((buffer) => Buffer.from(buffer));
+            const basePath = `tour-packages/${id}`;
+            const newImageUrls = await uploadMultipleImages(imageBlobs, basePath);
             currentImageUrls = [...currentImageUrls, ...newImageUrls];
         }
 
-        // Update image URLs array
-        if (imagesToRemoveStr || newImageFiles.length > 0) {
-            updateData.imageUrls = currentImageUrls;
+        updateData.image_urls = currentImageUrls;
+
+        const { data: updated, error: updateError } = await supabaseAdmin
+            .from("tour_packages")
+            .update(updateData)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw updateError;
         }
-
-        // Update document
-        await updateDoc(doc(db, "tourPackages", id), updateData);
-
-        // Fetch updated document
-        const updatedDoc = await getDoc(doc(db, "tourPackages", id));
-        const data = updatedDoc.data()!;
 
         return NextResponse.json(
             {
                 success: true,
                 data: {
-                    id: updatedDoc.id,
-                    placeName: data.placeName,
-                    city: data.city,
-                    priceRange: data.priceRange,
-                    tripCategoryId: data.tripCategoryId,
-                    tripCategoryName: data.tripCategoryName,
-                    imageUrls: data.imageUrls || [],
-                    overview: data.overview,
-                    tourHighlights: data.tourHighlights || [],
-                    createdAt: data.createdAt?.toDate() || new Date(),
-                    updatedAt: data.updatedAt?.toDate() || new Date(),
+                    id: updated.id,
+                    placeName: updated.place_name,
+                    city: updated.city,
+                    priceRange: updated.price_range,
+                    tripCategoryId: updated.trip_category_id,
+                    tripCategoryName: updated.trip_category_name,
+                    imageUrls: updated.image_urls || [],
+                    overview: updated.overview,
+                    tourHighlights: updated.tour_highlights || [],
+                    createdAt: new Date(updated.created_at),
+                    updatedAt: new Date(updated.updated_at),
                 } as TourPackage,
                 message: "Tour package updated successfully",
             } as AdminApiResponse<TourPackage>,
@@ -286,13 +278,17 @@ export async function PUT(
 // DELETE /api/admin/tour-packages/[id] - Delete tour package
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
-        const packageDoc = await getDoc(doc(db, "tourPackages", id));
+        const { id } = await params;
+        const { data: pkg, error: fetchError } = await supabaseAdmin
+            .from("tour_packages")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-        if (!packageDoc.exists()) {
+        if (fetchError || !pkg) {
             return NextResponse.json(
                 {
                     success: false,
@@ -302,18 +298,23 @@ export async function DELETE(
             );
         }
 
-        // Delete all images from storage
-        const imageUrls = packageDoc.data().imageUrls || [];
-        if (imageUrls.length > 0) {
+        // Delete all images
+        if (pkg.image_urls && pkg.image_urls.length > 0) {
             try {
-                await deleteMultipleImages(imageUrls);
+                await deleteMultipleImages(pkg.image_urls);
             } catch (error) {
-                console.warn("Failed to delete some images:", error);
+                console.warn("Failed to delete images:", error);
             }
         }
 
-        // Delete document
-        await deleteDoc(doc(db, "tourPackages", id));
+        const { error: deleteError } = await supabaseAdmin
+            .from("tour_packages")
+            .delete()
+            .eq("id", id);
+
+        if (deleteError) {
+            throw deleteError;
+        }
 
         return NextResponse.json(
             {

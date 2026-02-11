@@ -1,20 +1,34 @@
-// Firebase Storage utility functions for image uploads and deletions
+// Supabase Storage utility functions for image uploads and deletions
 
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { storage } from "./firebase";
+import { supabaseAdmin } from "./supabase";
+
+const STORAGE_BUCKET = "yatrivo-storage";
 
 /**
- * Upload a single image to Firebase Storage
- * @param file - The file to upload
+ * Upload a single image to Supabase Storage
+ * @param file - The file buffer to upload
  * @param path - Storage path (e.g., "trip-categories/categoryId/image.jpg")
- * @returns Download URL of the uploaded image
+ * @returns Public URL of the uploaded image
  */
 export async function uploadImage(file: Buffer | Blob, path: string): Promise<string> {
     try {
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        return downloadURL;
+        const { data, error } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, file, {
+                contentType: "image/jpeg",
+                upsert: false,
+            });
+
+        if (error) {
+            throw error;
+        }
+
+        // Get public URL
+        const { data: publicUrlData } = supabaseAdmin.storage
+            .from(STORAGE_BUCKET)
+            .getPublicUrl(data.path);
+
+        return publicUrlData.publicUrl;
     } catch (error) {
         console.error("Error uploading image:", error);
         throw new Error("Failed to upload image");
@@ -22,10 +36,10 @@ export async function uploadImage(file: Buffer | Blob, path: string): Promise<st
 }
 
 /**
- * Upload multiple images to Firebase Storage
- * @param files - Array of files to upload
+ * Upload multiple images to Supabase Storage
+ * @param files - Array of file buffers to upload
  * @param basePath - Base storage path (e.g., "tour-packages/packageId")
- * @returns Array of download URLs
+ * @returns Array of public URLs
  */
 export async function uploadMultipleImages(
     files: (Buffer | Blob)[],
@@ -47,25 +61,29 @@ export async function uploadMultipleImages(
 }
 
 /**
- * Delete an image from Firebase Storage by URL
- * @param url - The full download URL of the image to delete
+ * Delete an image from Supabase Storage by path
+ * @param url - The full public URL of the image to delete
  */
 export async function deleteImage(url: string): Promise<void> {
     try {
         // Extract the storage path from the URL
-        const decodedUrl = decodeURIComponent(url);
-        const pathMatch = decodedUrl.match(/\/o\/(.+?)\?/);
-
-        if (!pathMatch || !pathMatch[1]) {
+        const urlParts = url.split(`${STORAGE_BUCKET}/`);
+        if (urlParts.length < 2) {
             throw new Error("Invalid storage URL");
         }
 
-        const path = pathMatch[1];
-        const storageRef = ref(storage, path);
-        await deleteObject(storageRef);
+        const path = urlParts[1];
+
+        const { error } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET)
+            .remove([path]);
+
+        if (error && error.message !== "Object not found") {
+            throw error;
+        }
     } catch (error: any) {
         // If file doesn't exist, don't throw error
-        if (error.code === "storage/object-not-found") {
+        if (error.message?.includes("not found")) {
             console.warn("Image not found in storage:", url);
             return;
         }
@@ -75,8 +93,8 @@ export async function deleteImage(url: string): Promise<void> {
 }
 
 /**
- * Delete multiple images from Firebase Storage
- * @param urls - Array of download URLs to delete
+ * Delete multiple images from Supabase Storage
+ * @param urls - Array of public URLs to delete
  */
 export async function deleteMultipleImages(urls: string[]): Promise<void> {
     try {

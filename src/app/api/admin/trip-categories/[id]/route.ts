@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    doc,
-    getDoc,
-    updateDoc,
-    deleteDoc,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabaseAdmin } from "@/lib/supabase";
 import {
     uploadImage,
     deleteImage,
@@ -18,13 +11,17 @@ import type { AdminApiResponse, TripCategory } from "@/types/admin";
 // GET /api/admin/trip-categories/[id] - Get single trip category
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
-        const categoryDoc = await getDoc(doc(db, "tripCategories", id));
+        const { id } = await params;
+        const { data: category, error } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-        if (!categoryDoc.exists()) {
+        if (error || !category) {
             return NextResponse.json(
                 {
                     success: false,
@@ -34,19 +31,16 @@ export async function GET(
             );
         }
 
-        const data = categoryDoc.data();
-        const category: TripCategory = {
-            id: categoryDoc.id,
-            name: data.name,
-            imageUrl: data.imageUrl,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-
         return NextResponse.json(
             {
                 success: true,
-                data: category,
+                data: {
+                    id: category.id,
+                    name: category.name,
+                    imageUrl: category.image_url,
+                    createdAt: new Date(category.created_at),
+                    updatedAt: new Date(category.updated_at),
+                } as TripCategory,
             } as AdminApiResponse<TripCategory>,
             { status: 200 }
         );
@@ -65,17 +59,22 @@ export async function GET(
 // PUT /api/admin/trip-categories/[id] - Update trip category
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const formData = await request.formData();
         const name = formData.get("name") as string | null;
         const imageFile = formData.get("image") as File | null;
 
         // Check if category exists
-        const categoryDoc = await getDoc(doc(db, "tripCategories", id));
-        if (!categoryDoc.exists()) {
+        const { data: existingCategory, error: fetchError } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .eq("id", id)
+            .single();
+
+        if (fetchError || !existingCategory) {
             return NextResponse.json(
                 {
                     success: false,
@@ -85,9 +84,7 @@ export async function PUT(
             );
         }
 
-        const updateData: any = {
-            updatedAt: serverTimestamp(),
-        };
+        const updateData: any = {};
 
         // Update name if provided
         if (name) {
@@ -105,7 +102,6 @@ export async function PUT(
 
         // Update image if provided
         if (imageFile && imageFile.size > 0) {
-            // Validate image file
             if (!isValidImageType(imageFile.name)) {
                 return NextResponse.json(
                     {
@@ -127,10 +123,9 @@ export async function PUT(
             }
 
             // Delete old image
-            const oldImageUrl = categoryDoc.data().imageUrl;
-            if (oldImageUrl) {
+            if (existingCategory.image_url) {
                 try {
-                    await deleteImage(oldImageUrl);
+                    await deleteImage(existingCategory.image_url);
                 } catch (error) {
                     console.warn("Failed to delete old image:", error);
                 }
@@ -141,25 +136,30 @@ export async function PUT(
             const fileName = generateUniqueFilename(imageFile.name);
             const storagePath = `trip-categories/${id}/${fileName}`;
             const imageUrl = await uploadImage(Buffer.from(imageBuffer), storagePath);
-            updateData.imageUrl = imageUrl;
+            updateData.image_url = imageUrl;
         }
 
         // Update document
-        await updateDoc(doc(db, "tripCategories", id), updateData);
+        const { data: updatedCategory, error: updateError } = await supabaseAdmin
+            .from("trip_categories")
+            .update(updateData)
+            .eq("id", id)
+            .select()
+            .single();
 
-        // Fetch updated document
-        const updatedDoc = await getDoc(doc(db, "tripCategories", id));
-        const data = updatedDoc.data()!;
+        if (updateError) {
+            throw updateError;
+        }
 
         return NextResponse.json(
             {
                 success: true,
                 data: {
-                    id: updatedDoc.id,
-                    name: data.name,
-                    imageUrl: data.imageUrl,
-                    createdAt: data.createdAt?.toDate() || new Date(),
-                    updatedAt: data.updatedAt?.toDate() || new Date(),
+                    id: updatedCategory.id,
+                    name: updatedCategory.name,
+                    imageUrl: updatedCategory.image_url,
+                    createdAt: new Date(updatedCategory.created_at),
+                    updatedAt: new Date(updatedCategory.updated_at),
                 } as TripCategory,
                 message: "Trip category updated successfully",
             } as AdminApiResponse<TripCategory>,
@@ -180,13 +180,17 @@ export async function PUT(
 // DELETE /api/admin/trip-categories/[id] - Delete trip category
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
-        const categoryDoc = await getDoc(doc(db, "tripCategories", id));
+        const { id } = await params;
+        const { data: category, error: fetchError } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-        if (!categoryDoc.exists()) {
+        if (fetchError || !category) {
             return NextResponse.json(
                 {
                     success: false,
@@ -197,17 +201,23 @@ export async function DELETE(
         }
 
         // Delete image from storage
-        const imageUrl = categoryDoc.data().imageUrl;
-        if (imageUrl) {
+        if (category.image_url) {
             try {
-                await deleteImage(imageUrl);
+                await deleteImage(category.image_url);
             } catch (error) {
                 console.warn("Failed to delete image:", error);
             }
         }
 
         // Delete document
-        await deleteDoc(doc(db, "tripCategories", id));
+        const { error: deleteError } = await supabaseAdmin
+            .from("trip_categories")
+            .delete()
+            .eq("id", id);
+
+        if (deleteError) {
+            throw deleteError;
+        }
 
         return NextResponse.json(
             {

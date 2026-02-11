@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
-import type { LoginRequest, AuthResponse } from "@/types/user";
+import { supabase } from "@/lib/supabase";
+import type { AdminApiResponse } from "@/types/admin";
 
 // POST /api/auth - Login endpoint
 export async function POST(request: NextRequest) {
   try {
-    const body: LoginRequest = await request.json();
+    const body = await request.json();
     const { email, password } = body;
 
     // Validate input
@@ -16,84 +14,92 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: "Email and password are required",
-        } as AuthResponse,
+        } as AdminApiResponse,
         { status: 400 }
       );
     }
 
-    // Authenticate with Firebase
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
+    // Authenticate with Supabase
+    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
-      password
-    );
-    const user = userCredential.user;
+      password,
+    });
 
-    // Get user profile from Firestore
-    const userDocRef = doc(db, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
+    if (signInError) {
       return NextResponse.json(
         {
           success: false,
-          error: "User profile not found",
-        } as AuthResponse,
-        { status: 404 }
+          error: "Invalid email or password",
+        } as AdminApiResponse,
+        { status: 401 }
       );
     }
 
-    const userProfile = userDoc.data();
+    if (!authData.user || !authData.session) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication failed",
+        } as AdminApiResponse,
+        { status: 401 }
+      );
+    }
 
-    // Get ID token
-    const token = await user.getIdToken();
+    // Get user profile from users table
+    const { data: userProfile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (profileError || !userProfile) {
+      // User authenticated but profile not found - return basic info
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            user: {
+              uid: authData.user.id,
+              fullName: authData.user.user_metadata?.full_name || "",
+              mobileNumber: authData.user.user_metadata?.mobile_number || "",
+              email: authData.user.email || "",
+              createdAt: new Date(authData.user.created_at),
+              updatedAt: new Date(),
+            },
+            token: authData.session.access_token,
+          },
+          message: "Login successful",
+        } as AdminApiResponse,
+        { status: 200 }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         data: {
           user: {
-            uid: user.uid,
-            fullName: userProfile.fullName,
-            mobileNumber: userProfile.mobileNumber,
+            uid: userProfile.id,
+            fullName: userProfile.full_name,
+            mobileNumber: userProfile.mobile_number,
             email: userProfile.email,
-            createdAt: userProfile.createdAt?.toDate() || new Date(),
-            updatedAt: userProfile.updatedAt?.toDate() || new Date(),
+            createdAt: new Date(userProfile.created_at),
+            updatedAt: new Date(userProfile.updated_at),
           },
-          token,
+          token: authData.session.access_token,
         },
         message: "Login successful",
-      } as AuthResponse,
+      } as AdminApiResponse,
       { status: 200 }
     );
   } catch (error: any) {
     console.error("Login error:", error);
-
-    // Handle Firebase specific errors
-    let errorMessage = "Authentication failed";
-    let statusCode = 401;
-
-    if (error.code === "auth/user-not-found") {
-      errorMessage = "User not found";
-      statusCode = 404;
-    } else if (error.code === "auth/wrong-password") {
-      errorMessage = "Invalid email or password";
-    } else if (error.code === "auth/invalid-email") {
-      errorMessage = "Invalid email address";
-    } else if (error.code === "auth/user-disabled") {
-      errorMessage = "User account has been disabled";
-      statusCode = 403;
-    } else if (error.code === "auth/too-many-requests") {
-      errorMessage = "Too many failed login attempts. Please try again later";
-      statusCode = 429;
-    }
-
     return NextResponse.json(
       {
         success: false,
-        error: errorMessage,
-      } as AuthResponse,
-      { status: statusCode }
+        error: error.message || "Authentication failed",
+      } as AdminApiResponse,
+      { status: 500 }
     );
   }
 }

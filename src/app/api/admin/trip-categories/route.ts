@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    orderBy,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { uploadImage, generateUniqueFilename, isValidImageType } from "@/lib/storage";
 import type { AdminApiResponse, TripCategory } from "@/types/admin";
 
@@ -62,36 +54,55 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create document first to get ID
-        const categoryRef = await addDoc(collection(db, "tripCategories"), {
-            name: name.trim(),
-            imageUrl: "", // Temporary, will update
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
+        // Create database record first (with temporary image URL)
+        const { data: categoryData, error: insertError } = await supabaseAdmin
+            .from("trip_categories")
+            .insert({
+                name: name.trim(),
+                image_url: "",
+            })
+            .select()
+            .single();
 
-        // Upload image to Firebase Storage
+        if (insertError || !categoryData) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Failed to create trip category",
+                } as AdminApiResponse,
+                { status: 500 }
+            );
+        }
+
+        // Upload image to Supabase Storage
         const imageBuffer = await imageFile.arrayBuffer();
         const fileName = generateUniqueFilename(imageFile.name);
-        const storagePath = `trip-categories/${categoryRef.id}/${fileName}`;
+        const storagePath = `trip-categories/${categoryData.id}/${fileName}`;
         const imageUrl = await uploadImage(Buffer.from(imageBuffer), storagePath);
 
-        // Update document with image URL
-        const { updateDoc, doc } = await import("firebase/firestore");
-        await updateDoc(doc(db, "tripCategories", categoryRef.id), {
-            imageUrl,
-            updatedAt: serverTimestamp(),
-        });
+        // Update record with image URL
+        const { data: updatedCategory, error: updateError } = await supabaseAdmin
+            .from("trip_categories")
+            .update({ image_url: imageUrl })
+            .eq("id", categoryData.id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error("Update error:", updateError);
+        }
+
+        const finalCategory = updatedCategory || categoryData;
 
         return NextResponse.json(
             {
                 success: true,
                 data: {
-                    id: categoryRef.id,
-                    name: name.trim(),
-                    imageUrl,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    id: finalCategory.id,
+                    name: finalCategory.name,
+                    imageUrl: imageUrl,
+                    createdAt: new Date(finalCategory.created_at),
+                    updatedAt: new Date(finalCategory.updated_at),
                 } as TripCategory,
                 message: "Trip category created successfully",
             } as AdminApiResponse<TripCategory>,
@@ -112,26 +123,29 @@ export async function POST(request: NextRequest) {
 // GET /api/admin/trip-categories - List all trip categories
 export async function GET(request: NextRequest) {
     try {
-        const categoriesRef = collection(db, "tripCategories");
-        const q = query(categoriesRef, orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
+        const { data: categories, error } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .range(0, 999);
 
-        const categories: TripCategory[] = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                name: data.name,
-                imageUrl: data.imageUrl,
-                createdAt: data.createdAt?.toDate() || new Date(),
-                updatedAt: data.updatedAt?.toDate() || new Date(),
-            };
-        });
+        if (error) {
+            throw error;
+        }
+
+        const formattedCategories: TripCategory[] = (categories || []).map((cat) => ({
+            id: cat.id,
+            name: cat.name,
+            imageUrl: cat.image_url,
+            createdAt: new Date(cat.created_at),
+            updatedAt: new Date(cat.updated_at),
+        }));
 
         return NextResponse.json(
             {
                 success: true,
-                data: categories,
-                message: `Found ${categories.length} trip categories`,
+                data: formattedCategories,
+                message: `Found ${formattedCategories.length} trip categories`,
             } as AdminApiResponse<TripCategory[]>,
             { status: 200 }
         );

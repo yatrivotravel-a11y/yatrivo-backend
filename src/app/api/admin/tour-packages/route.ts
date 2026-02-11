@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    collection,
-    addDoc,
-    getDocs,
-    getDoc,
-    doc,
-    query,
-    orderBy,
-    where,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabaseAdmin } from "@/lib/supabase";
 import {
     uploadMultipleImages,
     generateUniqueFilename,
@@ -102,8 +91,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify trip category exists
-        const categoryDoc = await getDoc(doc(db, "tripCategories", tripCategoryId));
-        if (!categoryDoc.exists()) {
+        const { data: category, error: categoryError } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .eq("id", tripCategoryId)
+            .single();
+
+        if (categoryError || !category) {
             return NextResponse.json(
                 {
                     success: false,
@@ -136,50 +130,69 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Create document first to get ID
-        const packageRef = await addDoc(collection(db, "tourPackages"), {
-            placeName: placeName.trim(),
-            city: city.trim(),
-            priceRange: priceRange.trim(),
-            tripCategoryId,
-            tripCategoryName: categoryDoc.data().name,
-            imageUrls: [], // Temporary
-            overview: overview.trim(),
-            tourHighlights,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
+        // Create database record first
+        const { data: packageData, error: insertError } = await supabaseAdmin
+            .from("tour_packages")
+            .insert({
+                place_name: placeName.trim(),
+                city: city.trim(),
+                price_range: priceRange.trim(),
+                trip_category_id: tripCategoryId,
+                trip_category_name: category.name,
+                image_urls: [],
+                overview: overview.trim(),
+                tour_highlights: tourHighlights,
+            })
+            .select()
+            .single();
 
-        // Upload all images to Firebase Storage
+        if (insertError || !packageData) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Failed to create tour package",
+                } as AdminApiResponse,
+                { status: 500 }
+            );
+        }
+
+        // Upload all images to Supabase Storage
         const imageBuffers = await Promise.all(
             imageFiles.map((file) => file.arrayBuffer())
         );
         const imageBlobs = imageBuffers.map((buffer) => Buffer.from(buffer));
-        const basePath = `tour-packages/${packageRef.id}`;
+        const basePath = `tour-packages/${packageData.id}`;
         const imageUrls = await uploadMultipleImages(imageBlobs, basePath);
 
-        // Update document with image URLs
-        const { updateDoc } = await import("firebase/firestore");
-        await updateDoc(doc(db, "tourPackages", packageRef.id), {
-            imageUrls,
-            updatedAt: serverTimestamp(),
-        });
+        // Update record with image URLs
+        const { data: updatedPackage, error: updateError } = await supabaseAdmin
+            .from("tour_packages")
+            .update({ image_urls: imageUrls })
+            .eq("id", packageData.id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error("Update error:", updateError);
+        }
+
+        const finalPackage = updatedPackage || packageData;
 
         return NextResponse.json(
             {
                 success: true,
                 data: {
-                    id: packageRef.id,
-                    placeName: placeName.trim(),
-                    city: city.trim(),
-                    priceRange: priceRange.trim(),
-                    tripCategoryId,
-                    tripCategoryName: categoryDoc.data().name,
-                    imageUrls,
-                    overview: overview.trim(),
-                    tourHighlights,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    id: finalPackage.id,
+                    placeName: finalPackage.place_name,
+                    city: finalPackage.city,
+                    priceRange: finalPackage.price_range,
+                    tripCategoryId: finalPackage.trip_category_id,
+                    tripCategoryName: finalPackage.trip_category_name,
+                    imageUrls: imageUrls,
+                    overview: finalPackage.overview,
+                    tourHighlights: finalPackage.tour_highlights,
+                    createdAt: new Date(finalPackage.created_at),
+                    updatedAt: new Date(finalPackage.updated_at),
                 } as TourPackage,
                 message: "Tour package created successfully",
             } as AdminApiResponse<TourPackage>,
@@ -204,49 +217,43 @@ export async function GET(request: NextRequest) {
         const categoryId = searchParams.get("categoryId");
         const city = searchParams.get("city");
 
-        const packagesRef = collection(db, "tourPackages");
-        let q;
+        let query = supabaseAdmin
+            .from("tour_packages")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .range(0, 999);
 
         if (categoryId) {
-            q = query(
-                packagesRef,
-                where("tripCategoryId", "==", categoryId),
-                orderBy("createdAt", "desc")
-            );
+            query = query.eq("trip_category_id", categoryId);
         } else if (city) {
-            q = query(
-                packagesRef,
-                where("city", "==", city),
-                orderBy("createdAt", "desc")
-            );
-        } else {
-            q = query(packagesRef, orderBy("createdAt", "desc"));
+            query = query.eq("city", city);
         }
 
-        const querySnapshot = await getDocs(q);
+        const { data: packages, error } = await query;
 
-        const packages: TourPackage[] = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                placeName: data.placeName,
-                city: data.city,
-                priceRange: data.priceRange,
-                tripCategoryId: data.tripCategoryId,
-                tripCategoryName: data.tripCategoryName,
-                imageUrls: data.imageUrls || [],
-                overview: data.overview,
-                tourHighlights: data.tourHighlights || [],
-                createdAt: data.createdAt?.toDate() || new Date(),
-                updatedAt: data.updatedAt?.toDate() || new Date(),
-            };
-        });
+        if (error) {
+            throw error;
+        }
+
+        const formattedPackages: TourPackage[] = (packages || []).map((pkg) => ({
+            id: pkg.id,
+            placeName: pkg.place_name,
+            city: pkg.city,
+            priceRange: pkg.price_range,
+            tripCategoryId: pkg.trip_category_id,
+            tripCategoryName: pkg.trip_category_name,
+            imageUrls: pkg.image_urls || [],
+            overview: pkg.overview,
+            tourHighlights: pkg.tour_highlights || [],
+            createdAt: new Date(pkg.created_at),
+            updatedAt: new Date(pkg.updated_at),
+        }));
 
         return NextResponse.json(
             {
                 success: true,
-                data: packages,
-                message: `Found ${packages.length} tour packages`,
+                data: formattedPackages,
+                message: `Found ${formattedPackages.length} tour packages`,
             } as AdminApiResponse<TourPackage[]>,
             { status: 200 }
         );

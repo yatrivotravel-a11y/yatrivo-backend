@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteUser } from "firebase/auth";
-import { doc, deleteDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 // DELETE /api/auth/delete - Delete user account
 export async function DELETE(request: NextRequest) {
@@ -21,8 +19,18 @@ export async function DELETE(request: NextRequest) {
 
         const token = authHeader.split("Bearer ")[1];
 
-        // Note: In a real-world scenario, you would verify the token here
-        // For Firebase, the client should be authenticated and send the user's UID
+        // Get user from token
+        const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+        if (userError || !user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Invalid or expired token",
+                },
+                { status: 401 }
+            );
+        }
 
         const body = await request.json();
         const { uid } = body;
@@ -37,21 +45,8 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Get the current user from Firebase Auth
-        const currentUser = auth.currentUser;
-
-        if (!currentUser) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "No authenticated user found",
-                },
-                { status: 401 }
-            );
-        }
-
         // Verify that the user is deleting their own account
-        if (currentUser.uid !== uid) {
+        if (user.id !== uid) {
             return NextResponse.json(
                 {
                     success: false,
@@ -61,12 +56,28 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Delete user document from Firestore
-        const userDocRef = doc(db, "users", uid);
-        await deleteDoc(userDocRef);
+        // Delete user profile from users table (will cascade due to foreign key)
+        const { error: profileError } = await supabaseAdmin
+            .from("users")
+            .delete()
+            .eq("id", uid);
 
-        // Delete user from Firebase Authentication
-        await deleteUser(currentUser);
+        if (profileError) {
+            console.error("Profile deletion error:", profileError);
+        }
+
+        // Delete user from Supabase Auth
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(uid);
+
+        if (deleteError) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Failed to delete user account",
+                },
+                { status: 500 }
+            );
+        }
 
         return NextResponse.json(
             {
@@ -77,25 +88,12 @@ export async function DELETE(request: NextRequest) {
         );
     } catch (error: any) {
         console.error("Delete user error:", error);
-
-        // Handle Firebase specific errors
-        let errorMessage = "Failed to delete user account";
-        let statusCode = 500;
-
-        if (error.code === "auth/requires-recent-login") {
-            errorMessage = "This operation requires recent authentication. Please login again";
-            statusCode = 401;
-        } else if (error.code === "auth/user-not-found") {
-            errorMessage = "User not found";
-            statusCode = 404;
-        }
-
         return NextResponse.json(
             {
                 success: false,
-                error: errorMessage,
+                error: error.message || "Failed to delete user account",
             },
-            { status: statusCode }
+            { status: 500 }
         );
     }
 }

@@ -1,70 +1,182 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useDashboard, Package } from '@/context/DashboardContext';
+import React, { useState, useEffect } from 'react';
+import { getTourPackages, getTripCategories, getDestinations, createTourPackage, updateTourPackage, deleteTourPackage } from '@/lib/api';
+import type { TourPackage, TripCategory, Destination } from '@/types/admin';
 import DashboardTable from '@/components/dashboard/DashboardTable';
 import Modal from '@/components/ui/Modal';
 
 export default function PackagesPage() {
-  const { packages, categories, addPackage } = useDashboard();
+  const [packages, setPackages] = useState<TourPackage[]>([]);
+  const [categories, setCategories] = useState<TripCategory[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<TourPackage | null>(null);
 
   // Form State
-  const [name, setName] = useState('');
   const [placeName, setPlaceName] = useState('');
   const [city, setCity] = useState('');
-  const [price, setPrice] = useState('');
+  const [priceRange, setPriceRange] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [imageUrl, setImageUrl] = useState(''); // Simple single image for now
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [overview, setOverview] = useState('');
-  const [tourHighlight, setTourHighlight] = useState('');
+  const [tourHighlights, setTourHighlights] = useState<string[]>(['']);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [packagesRes, catRes, destRes] = await Promise.all([
+        getTourPackages(),
+        getTripCategories(),
+        getDestinations()
+      ]);
+
+      if (packagesRes.success) {
+        setPackages(packagesRes.data || []);
+      }
+      if (catRes.success) {
+        setCategories(catRes.data || []);
+      }
+      if (destRes.success) {
+        setDestinations(destRes.data || []);
+      }
+    } catch (err) {
+      setError('Failed to fetch data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const columns = [
-    { header: 'Package Name', accessor: 'name' as keyof Package },
-    { header: 'City', accessor: 'city' as keyof Package },
-    { header: 'Price', accessor: (item: Package) => `$${item.price}` },
+    { header: 'Package Name', accessor: 'placeName' as keyof TourPackage },
+    { header: 'City', accessor: 'city' as keyof TourPackage },
+    { header: 'Price Range', accessor: 'priceRange' as keyof TourPackage },
     { 
       header: 'Category', 
-      accessor: (item: Package) => {
-        const cat = categories.find(c => c.id === item.categoryId);
-        return cat ? cat.name : 'Unknown';
-      }
+      accessor: (item: TourPackage) => item.tripCategoryName || 'Unknown'
     },
-     { 
+    { 
       header: 'Image', 
-      accessor: (item: Package) => (
-        item.images?.[0] ? <img src={item.images[0]} alt={item.name} className="h-10 w-16 object-cover rounded" /> : 'No Image'
+      accessor: (item: TourPackage) => (
+        item.imageUrls?.[0] ? <img src={item.imageUrls[0]} alt={item.placeName} className="h-10 w-16 object-cover rounded" /> : 'No Image'
+      )
+    },
+    {
+      header: 'Actions',
+      accessor: (item: TourPackage) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleEdit(item)}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(item.id, item.placeName)}
+            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
       )
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPackage: Package = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      placeName,
-      city,
-      price: Number(price),
-      categoryId,
-      images: [imageUrl], // Storing as array
-      overview,
-      tourHighlight,
-    };
-    addPackage(newPackage);
-    setIsModalOpen(false);
-    resetForm();
+    if (!editingPackage && imageFiles.length === 0) {
+      alert('Please select at least one image');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.append('placeName', placeName);
+    formData.append('city', city);
+    formData.append('priceRange', priceRange);
+    formData.append('tripCategoryId', categoryId);
+    formData.append('overview', overview);
+    
+    // Filter out empty highlights and append as JSON
+    const validHighlights = tourHighlights.filter(h => h.trim() !== '');
+    formData.append('tourHighlights', JSON.stringify(validHighlights));
+    
+    // Append each image with indexed names
+    imageFiles.forEach((file, index) => {
+      formData.append(`image${index}`, file);
+    });
+
+    const result = editingPackage 
+      ? await updateTourPackage(editingPackage.id, formData)
+      : await createTourPackage(formData);
+    
+    if (result.success) {
+      setIsModalOpen(false);
+      resetForm();
+      fetchData(); // Refresh the list
+    } else {
+      alert(result.error || `Failed to ${editingPackage ? 'update' : 'create'} tour package`);
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleEdit = (pkg: TourPackage) => {
+    setEditingPackage(pkg);
+    setPlaceName(pkg.placeName);
+    setCity(pkg.city);
+    setPriceRange(pkg.priceRange);
+    setCategoryId(pkg.tripCategoryId);
+    setOverview(pkg.overview || '');
+    setTourHighlights(pkg.tourHighlights || ['']);
+    setImageFiles([]);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+      return;
+    }
+
+    const result = await deleteTourPackage(id);
+    if (result.success) {
+      fetchData(); // Refresh the list
+    } else {
+      alert(result.error || 'Failed to delete tour package');
+    }
   };
 
   const resetForm = () => {
-    setName('');
     setPlaceName('');
     setCity('');
-    setPrice('');
+    setPriceRange('');
     setCategoryId('');
-    setImageUrl('');
+    setImageFiles([]);
     setOverview('');
-    setTourHighlight('');
+    setTourHighlights(['']);
+    setEditingPackage(null);
+  };
+
+  const addHighlightField = () => {
+    setTourHighlights([...tourHighlights, '']);
+  };
+
+  const removeHighlightField = (index: number) => {
+    const newHighlights = tourHighlights.filter((_, i) => i !== index);
+    setTourHighlights(newHighlights.length === 0 ? [''] : newHighlights);
+  };
+
+  const updateHighlight = (index: number, value: string) => {
+    const newHighlights = [...tourHighlights];
+    newHighlights[index] = value;
+    setTourHighlights(newHighlights);
   };
 
   return (
@@ -79,86 +191,106 @@ export default function PackagesPage() {
         </button>
       </div>
 
-      <DashboardTable data={packages} columns={columns} />
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-red-800 dark:text-red-200">
+          {error}
+        </div>
+      ) : (
+        <DashboardTable data={packages} columns={columns} />
+      )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create Tour Package">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingPackage ? "Edit Tour Package" : "Create Tour Package"}>
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Name</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Place Name</label>
+            <select
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={placeName}
+              onChange={(e) => setPlaceName(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-              placeholder="e.g. Golden Triangle Tour"
-            />
+            >
+              <option value="">Select Place Name</option>
+              {destinations.map((dest) => (
+                <option key={dest.id} value={dest.placeName}>
+                  {dest.placeName}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
-             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Place Name</label>
-                <input
-                type="text"
-                required
-                value={placeName}
-                onChange={(e) => setPlaceName(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-                placeholder="e.g. Various"
-                />
-            </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">City</label>
-                <input
-                type="text"
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">City</label>
+              <select
                 required
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-                placeholder="e.g. Delhi"
-                />
+              >
+                <option value="">Select City</option>
+                {Array.from(new Set(destinations.map(d => d.city))).sort().map((cityName) => (
+                  <option key={cityName} value={cityName}>
+                    {cityName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Price Range</label>
+              <input
+                type="text"
+                required
+                value={priceRange}
+                onChange={(e) => setPriceRange(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
+                placeholder="e.g. $500-$1000"
+              />
             </div>
           </div>
           
-           <div className="grid grid-cols-2 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Price ($)</label>
-                <input
-                type="number"
-                required
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-                placeholder="e.g. 500"
-                />
-            </div>
-             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-                <select
-                required
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-                >
-                <option value="">Select Category</option>
-                {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                    </option>
-                ))}
-                </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+            <select
+              required
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Image URL</label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Images (Multiple) {editingPackage && '(Upload new to replace existing)'}
+            </label>
+            {editingPackage && editingPackage.imageUrls && editingPackage.imageUrls.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400 w-full">Current images:</p>
+                {editingPackage.imageUrls.map((url, idx) => (
+                  <img key={idx} src={url} alt={`Current ${idx + 1}`} className="h-16 w-24 object-cover rounded border" />
+                ))}
+              </div>
+            )}
             <input
-              type="url"
-              required
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-              placeholder="https://example.com/image.jpg"
+              type="file"
+              required={!editingPackage}
+              accept="image/*"
+              multiple
+              onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
+              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300"
             />
+            {imageFiles.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">{imageFiles.length} file(s) selected</p>
+            )}
           </div>
 
           <div>
@@ -172,31 +304,53 @@ export default function PackagesPage() {
               placeholder="Trip overview..."
             />
           </div>
-           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tour Highlights</label>
-            <textarea
-              required
-              rows={3}
-              value={tourHighlight}
-              onChange={(e) => setTourHighlight(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
-              placeholder="Key highlights..."
-            />
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tour Highlights</label>
+            {tourHighlights.map((highlight, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={highlight}
+                  onChange={(e) => updateHighlight(index, e.target.value)}
+                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm p-2 border"
+                  placeholder={`Highlight ${index + 1}`}
+                />
+                {tourHighlights.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeHighlightField(index)}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addHighlightField}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              + Add Highlight
+            </button>
           </div>
 
           <div className="flex justify-end pt-2">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              disabled={isSubmitting}
+              className="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
             >
-              Create
+              {isSubmitting ? (editingPackage ? 'Updating...' : 'Creating...') : (editingPackage ? 'Update' : 'Create')}
             </button>
           </div>
         </form>

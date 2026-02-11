@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    collection,
-    addDoc,
-    getDocs,
-    getDoc,
-    doc,
-    query,
-    orderBy,
-    where,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { uploadImage, generateUniqueFilename, isValidImageType } from "@/lib/storage";
 import type { AdminApiResponse, Destination } from "@/types/admin";
 
@@ -56,8 +45,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify trip category exists
-        const categoryDoc = await getDoc(doc(db, "tripCategories", tripCategoryId));
-        if (!categoryDoc.exists()) {
+        const { data: category, error: categoryError } = await supabaseAdmin
+            .from("trip_categories")
+            .select("*")
+            .eq("id", tripCategoryId)
+            .single();
+
+        if (categoryError || !category) {
             return NextResponse.json(
                 {
                     success: false,
@@ -88,42 +82,61 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create document first to get ID
-        const destinationRef = await addDoc(collection(db, "destinations"), {
-            placeName: placeName.trim(),
-            city: city.trim(),
-            tripCategoryId,
-            tripCategoryName: categoryDoc.data().name,
-            imageUrl: "", // Temporary
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
+        // Create database record first
+        const { data: destinationData, error: insertError } = await supabaseAdmin
+            .from("destinations")
+            .insert({
+                place_name: placeName.trim(),
+                city: city.trim(),
+                trip_category_id: tripCategoryId,
+                trip_category_name: category.name,
+                image_url: "",
+            })
+            .select()
+            .single();
 
-        // Upload image to Firebase Storage
+        if (insertError || !destinationData) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Failed to create destination",
+                } as AdminApiResponse,
+                { status: 500 }
+            );
+        }
+
+        // Upload image to Supabase Storage
         const imageBuffer = await imageFile.arrayBuffer();
         const fileName = generateUniqueFilename(imageFile.name);
-        const storagePath = `destinations/${destinationRef.id}/${fileName}`;
+        const storagePath = `destinations/${destinationData.id}/${fileName}`;
         const imageUrl = await uploadImage(Buffer.from(imageBuffer), storagePath);
 
-        // Update document with image URL
-        const { updateDoc } = await import("firebase/firestore");
-        await updateDoc(doc(db, "destinations", destinationRef.id), {
-            imageUrl,
-            updatedAt: serverTimestamp(),
-        });
+        // Update record with image URL
+        const { data: updatedDestination, error: updateError } = await supabaseAdmin
+            .from("destinations")
+            .update({ image_url: imageUrl })
+            .eq("id", destinationData.id)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error("Update error:", updateError);
+        }
+
+        const finalDestination = updatedDestination || destinationData;
 
         return NextResponse.json(
             {
                 success: true,
                 data: {
-                    id: destinationRef.id,
-                    placeName: placeName.trim(),
-                    city: city.trim(),
-                    tripCategoryId,
-                    tripCategoryName: categoryDoc.data().name,
-                    imageUrl,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    id: finalDestination.id,
+                    placeName: finalDestination.place_name,
+                    city: finalDestination.city,
+                    tripCategoryId: finalDestination.trip_category_id,
+                    tripCategoryName: finalDestination.trip_category_name,
+                    imageUrl: imageUrl,
+                    createdAt: new Date(finalDestination.created_at),
+                    updatedAt: new Date(finalDestination.updated_at),
                 } as Destination,
                 message: "Destination created successfully",
             } as AdminApiResponse<Destination>,
@@ -147,42 +160,38 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const categoryId = searchParams.get("categoryId");
 
-        const destinationsRef = collection(db, "destinations");
-        let q;
+        let query = supabaseAdmin
+            .from("destinations")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .range(0, 999);
 
         if (categoryId) {
-            // Filter by category
-            q = query(
-                destinationsRef,
-                where("tripCategoryId", "==", categoryId),
-                orderBy("createdAt", "desc")
-            );
-        } else {
-            // Get all destinations
-            q = query(destinationsRef, orderBy("createdAt", "desc"));
+            query = query.eq("trip_category_id", categoryId);
         }
 
-        const querySnapshot = await getDocs(q);
+        const { data: destinations, error } = await query;
 
-        const destinations: Destination[] = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                placeName: data.placeName,
-                city: data.city,
-                tripCategoryId: data.tripCategoryId,
-                tripCategoryName: data.tripCategoryName,
-                imageUrl: data.imageUrl,
-                createdAt: data.createdAt?.toDate() || new Date(),
-                updatedAt: data.updatedAt?.toDate() || new Date(),
-            };
-        });
+        if (error) {
+            throw error;
+        }
+
+        const formattedDestinations: Destination[] = (destinations || []).map((dest) => ({
+            id: dest.id,
+            placeName: dest.place_name,
+            city: dest.city,
+            tripCategoryId: dest.trip_category_id,
+            tripCategoryName: dest.trip_category_name,
+            imageUrl: dest.image_url,
+            createdAt: new Date(dest.created_at),
+            updatedAt: new Date(dest.updated_at),
+        }));
 
         return NextResponse.json(
             {
                 success: true,
-                data: destinations,
-                message: `Found ${destinations.length} destinations`,
+                data: formattedDestinations,
+                message: `Found ${formattedDestinations.length} destinations`,
             } as AdminApiResponse<Destination[]>,
             { status: 200 }
         );

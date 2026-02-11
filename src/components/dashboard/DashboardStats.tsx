@@ -1,32 +1,69 @@
+"use client";
+
+import { useDashboardData } from "@/hooks/useDashboardData";
+
 export default function DashboardStats() {
+  const { categories, destinations, packages, users, isLoading } = useDashboardData();
+
   const stats = [
-    { name: "Total Users", value: "1,234", change: "+12.5%", trend: "up" },
-    { name: "Active Users", value: "892", change: "+8.2%", trend: "up" },
-    { name: "Revenue", value: "$45,678", change: "+15.3%", trend: "up" },
-    { name: "Growth", value: "23.5%", change: "-2.1%", trend: "down" },
+    { 
+      name: "Trip Categories", 
+      value: isLoading ? "..." : categories.length.toString(), 
+      icon: "🗂️",
+      color: "blue" 
+    },
+    { 
+      name: "Destinations", 
+      value: isLoading ? "..." : destinations.length.toString(), 
+      icon: "📍",
+      color: "green" 
+    },
+    { 
+      name: "Tour Packages", 
+      value: isLoading ? "..." : packages.length.toString(), 
+      icon: "🎫",
+      color: "purple" 
+    },
+    { 
+      name: "Total Users", 
+      value: isLoading ? "..." : users.length.toString(), 
+      icon: "👥",
+      color: "orange" 
+    },
   ];
+
+  const getColorClasses = (color: string) => {
+    switch (color) {
+      case "blue":
+        return "text-blue-600 dark:text-blue-400";
+      case "green":
+        return "text-green-600 dark:text-green-400";
+      case "purple":
+        return "text-purple-600 dark:text-purple-400";
+      case "orange":
+        return "text-orange-600 dark:text-orange-400";
+      default:
+        return "text-gray-600 dark:text-gray-400";
+    }
+  };
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
         <div
           key={stat.name}
-          className="rounded-lg bg-white p-6 shadow dark:bg-gray-800"
+          className="rounded-lg bg-white p-6 shadow dark:bg-gray-800 hover:shadow-lg transition-shadow"
         >
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {stat.name}
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              {stat.name}
+            </div>
+            <span className="text-2xl">{stat.icon}</span>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="mt-2">
+            <div className={`text-3xl font-bold ${getColorClasses(stat.color)}`}>
               {stat.value}
             </div>
-            <span
-              className={`text-sm font-medium ${
-                stat.trend === "up" ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {stat.change}
-            </span>
           </div>
         </div>
       ))}
