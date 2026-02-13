@@ -58,7 +58,7 @@ export default function DestinationsPage() {
       header: 'Image',
       accessor: (item: Destination) => (
         item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.placeName} className="h-10 w-16 object-cover rounded" />
+          <img src={item.imageUrl} alt={item.placeName} className="h-12 w-20 object-cover rounded-lg shadow-md" />
         ) : 'No Image'
       )
     },
@@ -68,13 +68,13 @@ export default function DestinationsPage() {
         <div className="flex gap-2">
           <button
             onClick={() => handleEdit(item)}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
           >
             Edit
           </button>
           <button
             onClick={() => handleDelete(item.id, item.placeName)}
-            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
           >
             Delete
           </button>
@@ -144,24 +144,43 @@ export default function DestinationsPage() {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Destinations</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent dark:from-green-400 dark:to-emerald-400">Destinations</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage popular travel destinations</p>
+        </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+          className="group relative rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-3 text-white font-semibold shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 active:scale-95"
         >
-          Create Destination
+          <span className="flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Destination
+          </span>
         </button>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex justify-center items-center py-20 bg-white/50 dark:bg-gray-800/50 rounded-2xl backdrop-blur-sm">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-200 border-t-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400 font-medium">Loading destinations...</p>
+          </div>
         </div>
       ) : error ? (
-        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-red-800 dark:text-red-200">
-          {error}
+        <div className="rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 text-red-800 dark:text-red-200 shadow-sm">
+          <div className="flex items-start gap-3">
+            <svg className="w-6 h-6 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-semibold text-lg">Error</p>
+              <p className="mt-1">{error}</p>
+            </div>
+          </div>
         </div>
       ) : (
         <DashboardTable data={destinations} columns={columns} />
