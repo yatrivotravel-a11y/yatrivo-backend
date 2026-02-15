@@ -9,41 +9,12 @@ import {
 } from "@/lib/storage";
 import type { AdminApiResponse, TourPackage } from "@/types/admin";
 
-// GET /api/admin/tour-packages/[id] - Get single tour package
+// GET /api/admin/tour-packages/[id] - Get single tour package (Public)
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        // Get the authorization header
-        const authHeader = request.headers.get('authorization');
-        
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Missing or invalid authorization header',
-                } as AdminApiResponse,
-                { status: 401 }
-            );
-        }
-
-        // Extract the token
-        const token = authHeader.substring(7);
-
-        // Verify the token and get the user
-        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-        if (authError || !user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid or expired token',
-                } as AdminApiResponse,
-                { status: 401 }
-            );
-        }
-
         const { id } = await params;
         const { data: pkg, error } = await supabaseAdmin
             .from("tour_packages")

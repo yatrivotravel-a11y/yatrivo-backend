@@ -183,38 +183,9 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// GET /api/admin/destinations - List all destinations
+// GET /api/admin/destinations - List all destinations (Public)
 export async function GET(request: NextRequest) {
     try {
-        // Get the authorization header
-        const authHeader = request.headers.get('authorization');
-        
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Missing or invalid authorization header',
-                } as AdminApiResponse,
-                { status: 401 }
-            );
-        }
-
-        // Extract the token
-        const token = authHeader.substring(7);
-
-        // Verify the token and get the user
-        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-        if (authError || !user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid or expired token',
-                } as AdminApiResponse,
-                { status: 401 }
-            );
-        }
-
         const { searchParams } = new URL(request.url);
         const categoryId = searchParams.get("categoryId");
 

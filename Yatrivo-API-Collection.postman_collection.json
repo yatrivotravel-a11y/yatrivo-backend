@@ -384,18 +384,13 @@
           "name": "List All Trip Categories",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories"]
             },
-            "description": "Get all trip categories"
+            "description": "Get all trip categories (Public - No authentication required)"
           },
           "response": []
         },
@@ -403,18 +398,13 @@
           "name": "Get Single Trip Category",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
             },
-            "description": "Get a specific trip category by ID"
+            "description": "Get a specific trip category by ID (Public - No authentication required)"
           },
           "response": []
         },
@@ -540,18 +530,13 @@
           "name": "List All Destinations",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations"]
             },
-            "description": "Get all destinations"
+            "description": "Get all destinations (Public - No authentication required)"
           },
           "response": []
         },
@@ -559,12 +544,7 @@
           "name": "List Destinations by Category",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations?categoryId={{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -576,7 +556,7 @@
                 }
               ]
             },
-            "description": "Filter destinations by trip category"
+            "description": "Filter destinations by trip category (Public - No authentication required)"
           },
           "response": []
         },
@@ -584,18 +564,13 @@
           "name": "Get Single Destination",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations", "{{destinationId}}"]
             },
-            "description": "Get a specific destination by ID"
+            "description": "Get a specific destination by ID (Public - No authentication required)"
           },
           "response": []
         },
@@ -759,18 +734,13 @@
           "name": "List All Tour Packages",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages"]
             },
-            "description": "Get all tour packages"
+            "description": "Get all tour packages (Public - No authentication required)"
           },
           "response": []
         },
@@ -778,12 +748,7 @@
           "name": "List Packages by Category",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages?categoryId={{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -795,7 +760,7 @@
                 }
               ]
             },
-            "description": "Filter packages by trip category"
+            "description": "Filter packages by trip category (Public - No authentication required)"
           },
           "response": []
         },
@@ -803,12 +768,7 @@
           "name": "List Packages by City",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages?city=Goa",
               "host": ["{{baseUrl}}"],
@@ -820,7 +780,7 @@
                 }
               ]
             },
-            "description": "Filter packages by city"
+            "description": "Filter packages by city (Public - No authentication required)"
           },
           "response": []
         },
@@ -828,18 +788,13 @@
           "name": "Get Single Tour Package",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages", "{{packageId}}"]
             },
-            "description": "Get a specific tour package by ID"
+            "description": "Get a specific tour package by ID (Public - No authentication required)"
           },
           "response": []
         },
