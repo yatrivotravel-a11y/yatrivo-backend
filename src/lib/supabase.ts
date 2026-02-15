@@ -13,6 +13,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Browser client (uses anon key, respects RLS)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Server helper: create a per-request client that runs queries as the provided user.
+// This is required for RLS-protected tables when running from Next.js Route Handlers.
+export const createSupabaseServerClient = (accessToken: string) =>
+    createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        },
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+            detectSessionInUrl: false,
+        },
+    });
+
 // Admin client (uses service role, bypasses RLS)
 // Falls back to anon key if service role key is not available
 export const supabaseAdmin = createClient(

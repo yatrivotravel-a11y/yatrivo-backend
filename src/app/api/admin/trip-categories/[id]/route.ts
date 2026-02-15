@@ -14,6 +14,35 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // Get the authorization header
+        const authHeader = request.headers.get('authorization');
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Missing or invalid authorization header',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
+        // Extract the token
+        const token = authHeader.substring(7);
+
+        // Verify the token and get the user
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+        if (authError || !user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid or expired token',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
         const { id } = await params;
         const { data: category, error } = await supabaseAdmin
             .from("trip_categories")
@@ -62,6 +91,35 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // Get the authorization header
+        const authHeader = request.headers.get('authorization');
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Missing or invalid authorization header',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
+        // Extract the token
+        const token = authHeader.substring(7);
+
+        // Verify the token and get the user
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+        if (authError || !user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid or expired token',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
         const { id } = await params;
         const formData = await request.formData();
         const name = formData.get("name") as string | null;
@@ -183,6 +241,35 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // Get the authorization header
+        const authHeader = request.headers.get('authorization');
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Missing or invalid authorization header',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
+        // Extract the token
+        const token = authHeader.substring(7);
+
+        // Verify the token and get the user
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+        if (authError || !user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid or expired token',
+                } as AdminApiResponse,
+                { status: 401 }
+            );
+        }
+
         const { id } = await params;
         const { data: category, error: fetchError } = await supabaseAdmin
             .from("trip_categories")

@@ -4,18 +4,34 @@ import type { TripCategory, Destination, TourPackage } from "@/types/admin";
 // Base API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
+// Helper function to get auth token
+function getAuthToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken');
+  }
+  return null;
+}
+
 // Generic fetch wrapper
 export async function apiRequest<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
   try {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options?.headers as Record<string, string>),
+    };
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
       ...options,
+      headers,
     });
 
     const data = await response.json();
@@ -103,8 +119,15 @@ export async function getTripCategory(id: string): Promise<ApiResponse<TripCateg
 }
 
 export async function createTripCategory(formData: FormData): Promise<ApiResponse<TripCategory>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/trip-categories`, {
     method: "POST",
+    headers,
     body: formData, // FormData handles its own Content-Type
   });
 
@@ -125,8 +148,15 @@ export async function createTripCategory(formData: FormData): Promise<ApiRespons
 }
 
 export async function updateTripCategory(id: string, formData: FormData): Promise<ApiResponse<TripCategory>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/trip-categories/${id}`, {
     method: "PUT",
+    headers,
     body: formData,
   });
 
@@ -164,8 +194,15 @@ export async function getDestination(id: string): Promise<ApiResponse<Destinatio
 }
 
 export async function createDestination(formData: FormData): Promise<ApiResponse<Destination>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/destinations`, {
     method: "POST",
+    headers,
     body: formData,
   });
 
@@ -186,8 +223,15 @@ export async function createDestination(formData: FormData): Promise<ApiResponse
 }
 
 export async function updateDestination(id: string, formData: FormData): Promise<ApiResponse<Destination>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/destinations/${id}`, {
     method: "PUT",
+    headers,
     body: formData,
   });
 
@@ -234,8 +278,15 @@ export async function getTourPackage(id: string): Promise<ApiResponse<TourPackag
 }
 
 export async function createTourPackage(formData: FormData): Promise<ApiResponse<TourPackage>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/tour-packages`, {
     method: "POST",
+    headers,
     body: formData,
   });
 
@@ -256,8 +307,15 @@ export async function createTourPackage(formData: FormData): Promise<ApiResponse
 }
 
 export async function updateTourPackage(id: string, formData: FormData): Promise<ApiResponse<TourPackage>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/tour-packages/${id}`, {
     method: "PUT",
+    headers,
     body: formData,
   });
 
@@ -318,6 +376,101 @@ export async function updateUser(id: string, data: Partial<UserData>): Promise<A
 
 export async function deleteUser(id: string): Promise<ApiResponse<void>> {
   return apiRequest<void>(`/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ----- BOOKINGS API -----
+
+export interface BookingData {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userMobile: string;
+  packageId: string;
+  packageName: string;
+  packageCity: string;
+  totalAmount: number;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  bookingDate: string;
+  customerName: string;
+  customerEmail: string;
+  customerMobile: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookingStats {
+  total: number;
+  pending: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+  totalRevenue: number;
+}
+
+export interface UserBookingsResponse {
+  message: string;
+  bookings: BookingData[];
+  count: number;
+}
+
+export interface BookingsResponse {
+  message: string;
+  bookings: BookingData[];
+  stats: BookingStats;
+}
+
+export async function getBookings(filters?: { status?: string; userId?: string }): Promise<ApiResponse<UserBookingsResponse>> {
+  let url = "/bookings";
+  const params = new URLSearchParams();
+  
+  if (filters?.status) params.append("status", filters.status);
+  if (filters?.userId) params.append("userId", filters.userId);
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+  
+  return apiRequest<UserBookingsResponse>(url);
+}
+
+export async function getAdminBookings(filters?: { status?: string; userId?: string; limit?: number }): Promise<ApiResponse<BookingsResponse>> {
+  let url = "/admin/bookings";
+  const params = new URLSearchParams();
+  
+  if (filters?.status) params.append("status", filters.status);
+  if (filters?.userId) params.append("userId", filters.userId);
+  if (filters?.limit) params.append("limit", filters.limit.toString());
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+  
+  return apiRequest<BookingsResponse>(url);
+}
+
+export async function getBooking(id: string): Promise<ApiResponse<BookingData>> {
+  return apiRequest<BookingData>(`/bookings/${id}`);
+}
+
+export async function createBooking(data: { packageId: string }): Promise<ApiResponse<BookingData>> {
+  return apiRequest<BookingData>("/bookings", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBookingStatus(id: string, status: string): Promise<ApiResponse<BookingData>> {
+  return apiRequest<BookingData>(`/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function deleteBooking(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<void>(`/bookings/${id}`, {
     method: "DELETE",
   });
 }

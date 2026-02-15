@@ -14,6 +14,35 @@ interface UserResponse {
 // GET /api/users - Get all users
 export async function GET(request: NextRequest) {
   try {
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing or invalid authorization header',
+        } as ApiResponse,
+        { status: 401 }
+      );
+    }
+
+    // Extract the token
+    const token = authHeader.substring(7);
+
+    // Verify the token and get the user
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid or expired token',
+        } as ApiResponse,
+        { status: 401 }
+      );
+    }
+
     // Fetch users from Supabase Auth (not from a custom users table)
     const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
 
@@ -52,6 +81,35 @@ export async function GET(request: NextRequest) {
 // POST /api/users - Create a new user
 export async function POST(request: NextRequest) {
   try {
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing or invalid authorization header',
+        } as ApiResponse,
+        { status: 401 }
+      );
+    }
+
+    // Extract the token
+    const token = authHeader.substring(7);
+
+    // Verify the token and get the user
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid or expired token',
+        } as ApiResponse,
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { email, name } = body;
 

@@ -34,6 +34,11 @@
       "key": "packageId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -169,6 +174,162 @@
       ]
     },
     {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('bookingId', response.booking.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": \"{{packageId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings"]
+            },
+            "description": "Create a new booking for a tour package (requires authentication)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings"]
+            },
+            "description": "Get all bookings for the authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookings by Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by booking status (pending, confirmed, completed, cancelled)"
+                }
+              ]
+            },
+            "description": "Get bookings filtered by status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Booking",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings", "{{bookingId}}"]
+            },
+            "description": "Get a specific booking by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Booking Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings", "{{bookingId}}"]
+            },
+            "description": "Update booking status (pending, confirmed, completed, cancelled)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings", "{{bookingId}}"]
+            },
+            "description": "Delete a booking"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Admin - Trip Categories",
       "item": [
         {
@@ -189,7 +350,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -218,7 +384,12 @@
           "name": "List All Trip Categories",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories",
               "host": ["{{baseUrl}}"],
@@ -232,7 +403,12 @@
           "name": "Get Single Trip Category",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -246,7 +422,12 @@
           "name": "Update Trip Category",
           "request": {
             "method": "PUT",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -277,7 +458,12 @@
           "name": "Delete Trip Category",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -310,7 +496,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -349,7 +540,12 @@
           "name": "List All Destinations",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations",
               "host": ["{{baseUrl}}"],
@@ -363,7 +559,12 @@
           "name": "List Destinations by Category",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations?categoryId={{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -383,7 +584,12 @@
           "name": "Get Single Destination",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
               "host": ["{{baseUrl}}"],
@@ -397,7 +603,12 @@
           "name": "Update Destination",
           "request": {
             "method": "PUT",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -440,7 +651,12 @@
           "name": "Delete Destination",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
               "host": ["{{baseUrl}}"],
@@ -473,7 +689,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -538,7 +759,12 @@
           "name": "List All Tour Packages",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages",
               "host": ["{{baseUrl}}"],
@@ -552,7 +778,12 @@
           "name": "List Packages by Category",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages?categoryId={{categoryId}}",
               "host": ["{{baseUrl}}"],
@@ -572,7 +803,12 @@
           "name": "List Packages by City",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages?city=Goa",
               "host": ["{{baseUrl}}"],
@@ -592,7 +828,12 @@
           "name": "Get Single Tour Package",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
               "host": ["{{baseUrl}}"],
@@ -606,7 +847,12 @@
           "name": "Update Tour Package",
           "request": {
             "method": "PUT",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -679,13 +925,120 @@
           "name": "Delete Tour Package",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages", "{{packageId}}"]
             },
             "description": "Delete tour package and all its images"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Bookings",
+      "item": [
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "bookings"]
+            },
+            "description": "Get all bookings with statistics (Admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookings by Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/bookings?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "bookings"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status (pending, confirmed, completed, cancelled)"
+                }
+              ]
+            },
+            "description": "Filter all bookings by status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookings by User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/bookings?userId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "bookings"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "description": "Filter by user ID"
+                }
+              ]
+            },
+            "description": "Get all bookings for a specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recent Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/bookings?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "bookings"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Limit number of results"
+                }
+              ]
+            },
+            "description": "Get most recent bookings (limit results)"
           },
           "response": []
         }

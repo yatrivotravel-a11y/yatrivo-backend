@@ -215,6 +215,28 @@ export default function DashboardPage() {
                 </Link>
 
                 <Link
+                  href="/dashboard/bookings"
+                  className="group flex items-center justify-between rounded-xl border-2 border-gray-200 bg-gradient-to-r from-white to-gray-50 p-5 hover:border-pink-400 hover:shadow-lg dark:border-gray-700 dark:from-gray-800 dark:to-gray-800/50 dark:hover:border-pink-500 transition-all duration-300 transform hover:scale-[1.02]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 text-white shadow-md group-hover:shadow-lg transition-shadow">
+                      <span className="text-2xl">📅</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1">
+                        Manage Bookings
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        View all bookings
+                      </p>
+                    </div>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400 group-hover:text-pink-500 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+
+                <Link
                   href="/dashboard/users"
                   className="group flex items-center justify-between rounded-xl border-2 border-gray-200 bg-gradient-to-r from-white to-gray-50 p-5 hover:border-orange-400 hover:shadow-lg dark:border-gray-700 dark:from-gray-800 dark:to-gray-800/50 dark:hover:border-orange-500 transition-all duration-300 transform hover:scale-[1.02]"
                 >
