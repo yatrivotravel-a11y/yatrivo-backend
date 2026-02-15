@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { uploadImage, generateUniqueFilename, isValidImageType } from "@/lib/storage";
+import { addCorsHeaders, handleCorsOptions } from "@/lib/utils";
 import type { AdminApiResponse, TripCategory } from "@/types/admin";
+
+// OPTIONS /api/admin/trip-categories - Handle CORS preflight
+export async function OPTIONS(request: NextRequest) {
+    return handleCorsOptions(request.headers.get('origin'));
+}
 
 // POST /api/admin/trip-categories - Create new trip category
 export async function POST(request: NextRequest) {
     try {
+        const origin = request.headers.get('origin');
+        
         // Get the authorization header
         const authHeader = request.headers.get('authorization');
         
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Missing or invalid authorization header',
-                } as AdminApiResponse,
-                { status: 401 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Missing or invalid authorization header',
+                    } as AdminApiResponse,
+                    { status: 401 }
+                ),
+                origin
             );
         }
 
@@ -26,12 +37,15 @@ export async function POST(request: NextRequest) {
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
         if (authError || !user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid or expired token',
-                } as AdminApiResponse,
-                { status: 401 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Invalid or expired token',
+                    } as AdminApiResponse,
+                    { status: 401 }
+                ),
+                origin
             );
         }
 
@@ -41,45 +55,57 @@ export async function POST(request: NextRequest) {
 
         // Validate input
         if (!name || !imageFile) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Category name and image are required",
-                } as AdminApiResponse,
-                { status: 400 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: "Category name and image are required",
+                    } as AdminApiResponse,
+                    { status: 400 }
+                ),
+                origin
             );
         }
 
         // Validate name length
         if (name.trim().length < 2 || name.trim().length > 50) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Category name must be between 2 and 50 characters",
-                } as AdminApiResponse,
-                { status: 400 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: "Category name must be between 2 and 50 characters",
+                    } as AdminApiResponse,
+                    { status: 400 }
+                ),
+                origin
             );
         }
 
         // Validate image file
         if (!isValidImageType(imageFile.name)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Invalid image type. Only JPG, PNG, and WEBP are allowed",
-                } as AdminApiResponse,
-                { status: 400 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: "Invalid image type. Only JPG, PNG, and WEBP are allowed",
+                    } as AdminApiResponse,
+                    { status: 400 }
+                ),
+                origin
             );
         }
 
         // Check file size (5MB limit)
         if (imageFile.size > 5 * 1024 * 1024) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Image size must be less than 5MB",
-                } as AdminApiResponse,
-                { status: 400 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: "Image size must be less than 5MB",
+                    } as AdminApiResponse,
+                    { status: 400 }
+                ),
+                origin
             );
         }
 
@@ -94,12 +120,15 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (insertError || !categoryData) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Failed to create trip category",
-                } as AdminApiResponse,
-                { status: 500 }
+            return addCorsHeaders(
+                NextResponse.json(
+                    {
+                        success: false,
+                        error: "Failed to create trip category",
+                    } as AdminApiResponse,
+                    { status: 500 }
+                ),
+                origin
             );
         }
 
@@ -123,28 +152,34 @@ export async function POST(request: NextRequest) {
 
         const finalCategory = updatedCategory || categoryData;
 
-        return NextResponse.json(
-            {
-                success: true,
-                data: {
-                    id: finalCategory.id,
-                    name: finalCategory.name,
-                    imageUrl: imageUrl,
-                    createdAt: new Date(finalCategory.created_at),
-                    updatedAt: new Date(finalCategory.updated_at),
-                } as TripCategory,
-                message: "Trip category created successfully",
-            } as AdminApiResponse<TripCategory>,
-            { status: 201 }
+        return addCorsHeaders(
+            NextResponse.json(
+                {
+                    success: true,
+                    data: {
+                        id: finalCategory.id,
+                        name: finalCategory.name,
+                        imageUrl: imageUrl,
+                        createdAt: new Date(finalCategory.created_at),
+                        updatedAt: new Date(finalCategory.updated_at),
+                    } as TripCategory,
+                    message: "Trip category created successfully",
+                } as AdminApiResponse<TripCategory>,
+                { status: 201 }
+            ),
+            origin
         );
     } catch (error: any) {
         console.error("Create trip category error:", error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error.message || "Failed to create trip category",
-            } as AdminApiResponse,
-            { status: 500 }
+        return addCorsHeaders(
+            NextResponse.json(
+                {
+                    success: false,
+                    error: error.message || "Failed to create trip category",
+                } as AdminApiResponse,
+                { status: 500 }
+            ),
+            request.headers.get('origin')
         );
     }
 }
@@ -152,6 +187,8 @@ export async function POST(request: NextRequest) {
 // GET /api/admin/trip-categories - List all trip categories (Public)
 export async function GET(request: NextRequest) {
     try {
+        const origin = request.headers.get('origin');
+        
         const { data: categories, error } = await supabaseAdmin
             .from("trip_categories")
             .select("*")
@@ -170,22 +207,28 @@ export async function GET(request: NextRequest) {
             updatedAt: new Date(cat.updated_at),
         }));
 
-        return NextResponse.json(
-            {
-                success: true,
-                data: formattedCategories,
-                message: `Found ${formattedCategories.length} trip categories`,
-            } as AdminApiResponse<TripCategory[]>,
-            { status: 200 }
+        return addCorsHeaders(
+            NextResponse.json(
+                {
+                    success: true,
+                    data: formattedCategories,
+                    message: `Found ${formattedCategories.length} trip categories`,
+                } as AdminApiResponse<TripCategory[]>,
+                { status: 200 }
+            ),
+            origin
         );
     } catch (error: any) {
         console.error("Get trip categories error:", error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error.message || "Failed to fetch trip categories",
-            } as AdminApiResponse,
-            { status: 500 }
+        return addCorsHeaders(
+            NextResponse.json(
+                {
+                    success: false,
+                    error: error.message || "Failed to fetch trip categories",
+                } as AdminApiResponse,
+                { status: 500 }
+            ),
+            request.headers.get('origin')
         );
     }
 }
