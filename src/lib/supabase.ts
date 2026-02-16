@@ -6,41 +6,51 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// Only validate during runtime, not during build
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+if (!isBuildTime && (!supabaseUrl || !supabaseAnonKey)) {
     throw new Error('Missing Supabase URL or Anon Key');
 }
 
 // Browser client (uses anon key, respects RLS)
 // Configured to auto-refresh tokens and persist session for 7 days
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-    },
-});
+export const supabase = createClient(
+    supabaseUrl || 'https://placeholder.supabase.co', 
+    supabaseAnonKey || 'placeholder-key', 
+    {
+        auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+        },
+    }
+);
 
 // Server helper: create a per-request client that runs queries as the provided user.
 // This is required for RLS-protected tables when running from Next.js Route Handlers.
 export const createSupabaseServerClient = (accessToken: string) =>
-    createClient(supabaseUrl, supabaseAnonKey, {
-        global: {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
+    createClient(
+        supabaseUrl || 'https://placeholder.supabase.co', 
+        supabaseAnonKey || 'placeholder-key', 
+        {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
             },
-        },
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-            detectSessionInUrl: false,
-        },
-    });
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+                detectSessionInUrl: false,
+            },
+        }
+    );
 
 // Admin client (uses service role, bypasses RLS)
 // Falls back to anon key if service role key is not available
 export const supabaseAdmin = createClient(
-    supabaseUrl, 
-    supabaseServiceRoleKey || supabaseAnonKey,
+    supabaseUrl || 'https://placeholder.supabase.co', 
+    supabaseServiceRoleKey || supabaseAnonKey || 'placeholder-key',
     {
         auth: {
             autoRefreshToken: false,
