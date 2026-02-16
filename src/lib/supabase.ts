@@ -11,7 +11,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Browser client (uses anon key, respects RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Configured to auto-refresh tokens and persist session for 7 days
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+    },
+});
 
 // Server helper: create a per-request client that runs queries as the provided user.
 // This is required for RLS-protected tables when running from Next.js Route Handlers.
