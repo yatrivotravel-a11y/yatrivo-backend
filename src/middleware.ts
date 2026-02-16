@@ -4,8 +4,9 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   // Get the origin from the request
   const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
   
-  // List of allowed origins
+  // List of allowed origins (for CORS)
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
@@ -13,15 +14,26 @@ export function middleware(request: NextRequest) {
     // Add your production frontend URL here
   ];
 
-  // Check if the origin is allowed
+  // Allow same-origin requests (no origin header or matches host)
+  const isSameOrigin = !origin || origin.includes(host || '');
   const isAllowedOrigin = origin && allowedOrigins.includes(origin);
+  const shouldAllowCORS = isSameOrigin || isAllowedOrigin;
+  
+  console.log('Middleware:', {
+    method: request.method,
+    path: request.nextUrl.pathname,
+    origin,
+    host,
+    shouldAllowCORS
+  });
   
   // Handle preflight (OPTIONS) requests
   if (request.method === 'OPTIONS') {
     const response = new NextResponse(null, { status: 204 });
     
-    if (isAllowedOrigin) {
+    if (shouldAllowCORS && origin) {
       response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
     }
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -30,11 +42,12 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // Handle regular requests
+  // Handle regular requests - Always allow, just set CORS headers if needed
   const response = NextResponse.next();
   
-  if (isAllowedOrigin) {
+  if (shouldAllowCORS && origin) {
     response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
   }
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -43,6 +56,7 @@ export function middleware(request: NextRequest) {
 }
 
 // Configure which routes the middleware should run on
+// Middleware runs on all API routes and handles CORS + same-origin
 export const config = {
   matcher: '/api/:path*',
 };

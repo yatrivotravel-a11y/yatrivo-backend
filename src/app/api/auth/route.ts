@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import type { AdminApiResponse } from "@/types/admin";
 
+// Force dynamic rendering (required for API routes in production)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// GET /api/auth - Health check endpoint
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "Auth API is running",
+    timestamp: new Date().toISOString(),
+  });
+}
+
 // POST /api/auth - Login endpoint
 export async function POST(request: NextRequest) {
   try {
