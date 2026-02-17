@@ -11,7 +11,9 @@ export function middleware(request: NextRequest) {
     'http://localhost:3000',
     'http://localhost:3001',
     'https://yatrivo-backend-k934.vercel.app',
-    // Add your production frontend URL here
+    'https://www.yatrivojourneys.com',
+    'https://yatrivojourneys.com',
+    'https://admin.yatrivojourneys.com',
   ];
 
   // Allow same-origin requests (no origin header or matches host)
