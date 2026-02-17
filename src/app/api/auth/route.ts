@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import type { AdminApiResponse } from "@/types/admin";
 
-// Force dynamic rendering (required for API routes in production)
+// Route segment config - must be at the top level
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
 
 // GET /api/auth - Health check endpoint
 export async function GET() {

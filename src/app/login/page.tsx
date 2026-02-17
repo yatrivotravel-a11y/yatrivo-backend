@@ -28,7 +28,20 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await response.json();
+      // Handle 405 or empty responses
+      if (response.status === 405) {
+        throw new Error('API route not found or method not allowed. Please check deployment configuration.');
+      }
+
+      // Try to parse JSON, handle empty responses
+      let data;
+      const responseText = await response.text();
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (jsonError) {
+        console.error('Failed to parse response:', responseText);
+        throw new Error(`Server returned invalid response (${response.status})`);
+      }
 
       if (response.ok && data.success && data.data) {
         // Store auth token in localStorage
