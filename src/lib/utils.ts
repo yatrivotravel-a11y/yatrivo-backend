@@ -27,6 +27,9 @@ export function getCorsHeaders(origin?: string | null) {
     'http://localhost:3000',
     'http://localhost:3001',
     'https://yatrivo-backend-k934.vercel.app',
+    'https://www.yatrivojourneys.com',
+    'https://yatrivojourneys.com',
+    'https://admin.yatrivojourneys.com',
   ];
 
   const requestOrigin = origin || '';
@@ -38,6 +41,7 @@ export function getCorsHeaders(origin?: string | null) {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
   };
 }
