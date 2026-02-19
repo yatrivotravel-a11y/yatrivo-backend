@@ -2,76 +2,89 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import type { AdminApiResponse } from "@/types/admin";
 
-// POST /api/auth/signup - Create new user account
+// POST /api/auth/signup - Verify OTP and create new user account
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { fullName, mobileNumber, email, password } = body;
+        const { email, otp } = body;
 
         // Validate input
-        if (!fullName || !mobileNumber || !email || !password) {
+        if (!email || !otp) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: "All fields are required: fullName, mobileNumber, email, password",
+                    error: "Email and OTP are required",
                 } as AdminApiResponse,
                 { status: 400 }
             );
         }
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        // Validate OTP format (6 digits)
+        if (!/^\d{6}$/.test(otp)) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: "Invalid email format",
+                    error: "Invalid OTP format. Must be 6 digits",
                 } as AdminApiResponse,
                 { status: 400 }
             );
         }
 
-        // Validate mobile number format (basic validation)
-        const mobileRegex = /^[0-9]{10}$/;
-        if (!mobileRegex.test(mobileNumber)) {
+        // Retrieve OTP verification record
+        const { data: otpRecord, error: otpFetchError } = await supabaseAdmin
+            .from("otp_verifications")
+            .select("*")
+            .eq("email", email.toLowerCase())
+            .eq("otp", otp)
+            .eq("verified", false)
+            .single();
+
+        if (otpFetchError || !otpRecord) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: "Invalid mobile number. Must be 10 digits",
+                    error: "Invalid or expired OTP",
                 } as AdminApiResponse,
                 { status: 400 }
             );
         }
 
-        // Validate password length
-        if (password.length < 6) {
+        // Check if OTP has expired
+        const now = new Date();
+        const expiresAt = new Date(otpRecord.expires_at);
+        if (now > expiresAt) {
+            // Clean up expired OTP
+            await supabaseAdmin
+                .from("otp_verifications")
+                .delete()
+                .eq("id", otpRecord.id);
+
             return NextResponse.json(
                 {
                     success: false,
-                    error: "Password must be at least 6 characters long",
+                    error: "OTP has expired. Please request a new one",
                 } as AdminApiResponse,
                 { status: 400 }
             );
         }
 
-        // Sign up user with Supabase Admin (bypasses rate limits and auto-confirms)
-        // Note: We use admin.createUser to bypass the "email rate limit exceeded" error 
-        // which occurs when too many emails are sent or signups from same IP.
+        // Create user with Supabase Admin
         const { data: adminAuthData, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true, // Auto-confirm to skip email sending and bypass rate limits
+            email: email.toLowerCase(),
+            password: otpRecord.password_hash, // Use the stored password
+            email_confirm: true, // Auto-confirm email
             user_metadata: {
-                full_name: fullName,
-                mobile_number: mobileNumber
+                full_name: otpRecord.full_name,
+                mobile_number: otpRecord.mobile_number
             }
         });
 
         if (signUpError) {
+            console.error("User creation error:", signUpError);
             return NextResponse.json(
                 {
                     success: false,
-                    error: signUpError.message,
+                    error: signUpError.message || "Failed to create user account",
                 } as AdminApiResponse,
                 { status: 400 }
             );
@@ -90,20 +103,24 @@ export async function POST(request: NextRequest) {
         }
 
         // Store user profile in users table
-        // Use supabaseAdmin to bypass RLS policies regarding INSERT
         const { error: profileError } = await supabaseAdmin
             .from("users")
             .insert({
                 id: user.id,
-                full_name: fullName.trim(),
-                mobile_number: mobileNumber,
+                full_name: otpRecord.full_name,
+                mobile_number: otpRecord.mobile_number,
                 email: email.toLowerCase(),
             });
 
         if (profileError) {
             console.error("Profile creation error:", profileError);
-            // User is created in auth but profile failed - this is OK for now
         }
+
+        // Mark OTP as verified and clean up
+        await supabaseAdmin
+            .from("otp_verifications")
+            .delete()
+            .eq("id", otpRecord.id);
 
         return NextResponse.json(
             {
@@ -111,17 +128,15 @@ export async function POST(request: NextRequest) {
                 data: {
                     user: {
                         uid: user.id,
-                        fullName: fullName.trim(),
-                        mobileNumber,
+                        fullName: otpRecord.full_name,
+                        mobileNumber: otpRecord.mobile_number,
                         email: email.toLowerCase(),
-                        createdAt: new Date(),
+                        createdAt: new Date(user.created_at),
                         updatedAt: new Date(),
                     },
-                    // We don't get a session with createUser, so token is empty. 
-                    // Client should redirect to login.
-                    token: "",
+                    message: "Account created successfully. Please login to continue.",
                 },
-                message: "User registered successfully",
+                message: "User registered and verified successfully",
             } as AdminApiResponse,
             { status: 201 }
         );

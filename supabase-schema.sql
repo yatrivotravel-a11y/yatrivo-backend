@@ -188,3 +188,46 @@ CREATE TRIGGER update_tour_packages_updated_at BEFORE UPDATE ON tour_packages
 DROP TRIGGER IF EXISTS update_bookings_updated_at ON bookings;
 CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON bookings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- OTP Verification table for signup
+CREATE TABLE IF NOT EXISTS otp_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  otp TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  mobile_number TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create index for OTP lookups
+CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_verifications(email);
+CREATE INDEX IF NOT EXISTS idx_otp_expires ON otp_verifications(expires_at);
+
+-- Enable Row Level Security for OTP table
+ALTER TABLE otp_verifications ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policy: Allow public to insert OTP requests (for signup)
+DROP POLICY IF EXISTS "Anyone can request OTP" ON otp_verifications;
+CREATE POLICY "Anyone can request OTP" ON otp_verifications
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policy: Allow public to read their own OTP (for verification)
+DROP POLICY IF EXISTS "Anyone can verify their OTP" ON otp_verifications;
+CREATE POLICY "Anyone can verify their OTP" ON otp_verifications
+  FOR SELECT USING (true);
+
+-- RLS Policy: Allow deleting OTP records (for cleanup)
+DROP POLICY IF EXISTS "Allow OTP deletion" ON otp_verifications;
+CREATE POLICY "Allow OTP deletion" ON otp_verifications
+  FOR DELETE USING (true);
+
+-- Function to clean up expired OTPs (run periodically)
+CREATE OR REPLACE FUNCTION cleanup_expired_otps()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM otp_verifications WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql;
