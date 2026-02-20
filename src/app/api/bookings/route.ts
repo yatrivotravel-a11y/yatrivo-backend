@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendBookingNotificationEmail } from '@/lib/brevo';
 
 // POST: Create a new booking (Protected - requires authentication)
 export async function POST(request: NextRequest) {
@@ -101,6 +102,19 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Send booking notification email to admin (fire-and-forget, don't block response)
+    sendBookingNotificationEmail({
+      bookingId: booking.id,
+      customerName: userData.full_name,
+      customerEmail: userData.email,
+      customerMobile: userData.mobile_number,
+      packageName: packageData.place_name,
+      packageCity: packageData.city,
+      packagePriceRange: packageData.price_range || 'N/A',
+      totalAmount,
+      bookingDate: booking.booking_date,
+    }).catch((err) => console.error('Booking notification email error:', err));
 
     return NextResponse.json(
       {
