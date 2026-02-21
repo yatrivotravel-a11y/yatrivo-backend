@@ -5,15 +5,18 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: 'md' | 'lg';
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   if (!isOpen) return null;
+
+  const sizeClass = size === 'lg' ? 'max-w-3xl' : 'max-w-2xl';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300" onClick={onClose}>
       <div 
-        className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl dark:bg-gray-800/95 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-gray-200/50 dark:border-gray-700/50"
+        className={`w-full ${sizeClass} bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl dark:bg-gray-800/95 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-gray-200/50 dark:border-gray-700/50`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-gray-800/50 dark:to-gray-800/50 rounded-t-2xl">
@@ -28,7 +31,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             </svg>
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-6 max-h-[80vh] overflow-y-auto">
           {children}
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getUsers } from '@/lib/api';
+import { getUsers, deleteUserByAdmin } from '@/lib/api';
 import type { UserData } from '@/lib/api';
 import DashboardTable, { Column } from '@/components/dashboard/DashboardTable';
 
@@ -9,6 +9,8 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<UserData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -28,6 +30,26 @@ export default function UsersPage() {
       setError('Failed to fetch users');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!confirmDeleteUser) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteUserByAdmin(confirmDeleteUser.id);
+      if (result.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== confirmDeleteUser.id));
+        setConfirmDeleteUser(null);
+      } else {
+        setError(result.error || 'Failed to delete user');
+        setConfirmDeleteUser(null);
+      }
+    } catch {
+      setError('Failed to delete user');
+      setConfirmDeleteUser(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -105,7 +127,76 @@ export default function UsersPage() {
           </p>
         </div>
       ) : (
-        <DashboardTable data={users} columns={columns} />
+        <DashboardTable
+          data={users}
+          columns={columns}
+          actions={(user) => (
+            <button
+              onClick={() => setConfirmDeleteUser(user)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-all duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          )}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/30">
+                <svg className="w-7 h-7 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Delete User</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-semibold text-gray-900 dark:text-white">{confirmDeleteUser.name}</span>
+              {' '}({confirmDeleteUser.email})? Their account and all associated data will be removed.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDeleteUser(null)}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete User
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

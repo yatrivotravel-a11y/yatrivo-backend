@@ -108,6 +108,13 @@ export async function deleteAccount(userId: string): Promise<ApiResponse<{ messa
   });
 }
 
+export async function deleteUserByAdmin(uid: string): Promise<ApiResponse<{ message: string }>> {
+  return apiRequest<{ message: string }>("/auth/delete", {
+    method: "DELETE",
+    body: JSON.stringify({ uid }),
+  });
+}
+
 // ----- TRIP CATEGORIES API -----
 
 export async function getTripCategories(): Promise<ApiResponse<TripCategory[]>> {

@@ -17,6 +17,7 @@ export default function TripCategoryPage() {
   // Form State
   const [name, setName] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -121,6 +122,7 @@ export default function TripCategoryPage() {
   const resetForm = () => {
     setName('');
     setImageFile(null);
+    setImagePreview(null);
     setEditingCategory(null);
   };
 
@@ -188,14 +190,28 @@ export default function TripCategoryPage() {
               type="file"
               required={!editingCategory}
               accept="image/*"
-              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setImageFile(file);
+                if (file) {
+                  setImagePreview(URL.createObjectURL(file));
+                } else {
+                  setImagePreview(null);
+                }
+              }}
+              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 hover:file:text-blue-800 dark:file:bg-blue-600 dark:file:text-white dark:hover:file:bg-blue-700 dark:hover:file:text-white cursor-pointer"
             />
-            {editingCategory && editingCategory.imageUrl && (
-              <div className="mt-2">
-                <img src={editingCategory.imageUrl} alt="Current" className="h-20 w-32 object-cover rounded" />
+            {imagePreview ? (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Selected image preview:</p>
+                <img src={imagePreview} alt="Preview" className="h-28 w-44 object-cover rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm" />
               </div>
-            )}
+            ) : editingCategory && editingCategory.imageUrl ? (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current image:</p>
+                <img src={editingCategory.imageUrl} alt="Current" className="h-28 w-44 object-cover rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm" />
+              </div>
+            ) : null}
           </div>
           <div className="flex justify-end pt-2">
             <button

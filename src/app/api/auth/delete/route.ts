@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+const ADMIN_EMAIL = 'info@yatrivojourneys.com';
+
 // DELETE /api/auth/delete - Delete user account
 export async function DELETE(request: NextRequest) {
     try {
@@ -45,8 +47,9 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Verify that the user is deleting their own account
-        if (user.id !== uid) {
+        // Admins can delete any account; regular users can only delete their own
+        const isAdmin = user.email === ADMIN_EMAIL;
+        if (!isAdmin && user.id !== uid) {
             return NextResponse.json(
                 {
                     success: false,

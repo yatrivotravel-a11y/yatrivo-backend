@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { login, signup, forgotPassword, type LoginCredentials, type AuthResponse } from '@/lib/api';
 
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 export interface AuthState {
   user: AuthResponse['user'] | null;
   token: string | null;
@@ -20,15 +22,26 @@ export function useAuth() {
     // Check for stored auth data on mount
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
+    const storedExpiry = localStorage.getItem('auth_expiry');
 
-    if (storedToken && storedUser) {
+    const isSessionValid =
+      storedToken &&
+      storedUser &&
+      storedExpiry &&
+      Date.now() < parseInt(storedExpiry, 10);
+
+    if (isSessionValid) {
       setAuthState({
-        user: JSON.parse(storedUser),
-        token: storedToken,
+        user: JSON.parse(storedUser!),
+        token: storedToken!,
         isAuthenticated: true,
         isLoading: false,
       });
     } else {
+      // Clear any expired/incomplete session data
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_expiry');
       setAuthState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
@@ -41,9 +54,10 @@ export function useAuth() {
     if (response.success && response.data) {
       const { user, token } = response.data;
       
-      // Store in localStorage
+      // Store in localStorage with 7-day expiry
       localStorage.setItem('auth_token', token);
       localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem('auth_expiry', String(Date.now() + SESSION_DURATION_MS));
       
       setAuthState({
         user,
@@ -74,6 +88,7 @@ export function useAuth() {
       
       localStorage.setItem('auth_token', token);
       localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem('auth_expiry', String(Date.now() + SESSION_DURATION_MS));
       
       setAuthState({
         user,
@@ -97,6 +112,7 @@ export function useAuth() {
   const logout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_expiry');
     
     setAuthState({
       user: null,

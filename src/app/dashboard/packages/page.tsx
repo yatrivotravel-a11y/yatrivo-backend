@@ -22,6 +22,7 @@ export default function PackagesPage() {
   const [priceRange, setPriceRange] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [overview, setOverview] = useState('');
   const [tourHighlights, setTourHighlights] = useState<string[]>(['']);
 
@@ -159,6 +160,7 @@ export default function PackagesPage() {
     setPriceRange('');
     setCategoryId('');
     setImageFiles([]);
+    setImagePreviews([]);
     setOverview('');
     setTourHighlights(['']);
     setEditingPackage(null);
@@ -222,7 +224,7 @@ export default function PackagesPage() {
         <DashboardTable data={packages} columns={columns} />
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingPackage ? "Edit Tour Package" : "Create Tour Package"}>
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingPackage ? "Edit Tour Package" : "Create Tour Package"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Place Name</label>
@@ -291,11 +293,11 @@ export default function PackagesPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Images (Multiple) {editingPackage && '(Upload new to replace existing)'}
             </label>
-            {editingPackage && editingPackage.imageUrls && editingPackage.imageUrls.length > 0 && (
+            {editingPackage && editingPackage.imageUrls && editingPackage.imageUrls.length > 0 && imagePreviews.length === 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400 w-full">Current images:</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 w-full">Current images:</p>
                 {editingPackage.imageUrls.map((url, idx) => (
-                  <img key={idx} src={url} alt={`Current ${idx + 1}`} className="h-16 w-24 object-cover rounded border" />
+                  <img key={idx} src={url} alt={`Current ${idx + 1}`} className="h-20 w-28 object-cover rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm" />
                 ))}
               </div>
             )}
@@ -304,11 +306,22 @@ export default function PackagesPage() {
               required={!editingPackage}
               accept="image/*"
               multiple
-              onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
-              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setImageFiles(files);
+                setImagePreviews(files.map(f => URL.createObjectURL(f)));
+              }}
+              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 hover:file:text-blue-800 dark:file:bg-blue-600 dark:file:text-white dark:hover:file:bg-blue-700 dark:hover:file:text-white cursor-pointer"
             />
-            {imageFiles.length > 0 && (
-              <p className="text-sm text-gray-500 mt-1">{imageFiles.length} file(s) selected</p>
+            {imagePreviews.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Selected images ({imagePreviews.length}):</p>
+                <div className="flex flex-wrap gap-2">
+                  {imagePreviews.map((src, idx) => (
+                    <img key={idx} src={src} alt={`Preview ${idx + 1}`} className="h-20 w-28 object-cover rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm" />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
