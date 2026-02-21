@@ -56,18 +56,6 @@ export async function POST(request: NextRequest) {
 
     console.log('Auth API - Attempting login for:', email);
 
-    // Restrict dashboard access to admin only
-    const ADMIN_EMAIL = 'info@yatrivojourneys.com';
-    if (email.toLowerCase() !== ADMIN_EMAIL) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Access denied. This dashboard is for administrators only.",
-        } as AdminApiResponse,
-        { status: 403 }
-      );
-    }
-
     // Authenticate with Supabase
     const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
