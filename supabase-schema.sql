@@ -231,3 +231,38 @@ BEGIN
   DELETE FROM otp_verifications WHERE expires_at < NOW();
 END;
 $$ LANGUAGE plpgsql;
+
+-- Password Reset Tokens table (used by custom Brevo-based forgot-password flow)
+CREATE TABLE IF NOT EXISTS password_resets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+CREATE INDEX IF NOT EXISTS idx_password_resets_expires ON password_resets(expires_at);
+
+ALTER TABLE password_resets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow password reset inserts" ON password_resets;
+CREATE POLICY "Allow password reset inserts" ON password_resets
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow password reset reads" ON password_resets;
+CREATE POLICY "Allow password reset reads" ON password_resets
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow password reset deletes" ON password_resets;
+CREATE POLICY "Allow password reset deletes" ON password_resets
+  FOR DELETE USING (true);
+
+-- Function to clean up expired password reset tokens
+CREATE OR REPLACE FUNCTION cleanup_expired_password_resets()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM password_resets WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql;

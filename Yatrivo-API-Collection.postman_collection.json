@@ -1,44 +1,57 @@
 {
   "info": {
     "name": "Yatrivo Backend API",
-    "description": "Complete API collection for Yatrivo backend including Authentication and Admin Content Management",
+    "description": "Complete API collection for Yatrivo backend including Authentication, Users, Bookings, and Admin Content Management",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3000",
-      "type": "string"
+      "value": "https://admin.yatrivojourneys.com",
+      "type": "string",
+      "description": "Production base URL. Use http://localhost:3000 for local development."
     },
     {
       "key": "authToken",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "JWT access token — auto-set by the Login request test script."
     },
     {
       "key": "userId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Authenticated user UUID — auto-set by Login / Signup scripts."
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "string",
+      "description": "Password reset token extracted from the reset link sent via email."
     },
     {
       "key": "categoryId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Trip category UUID — auto-set by Create Trip Category script."
     },
     {
       "key": "destinationId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Destination UUID — auto-set by Create Destination script."
     },
     {
       "key": "packageId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Tour package UUID — auto-set by Create Tour Package script."
     },
     {
       "key": "bookingId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Booking UUID — auto-set by Create Booking script."
     }
   ],
   "item": [
@@ -49,12 +62,7 @@
           "name": "Request OTP",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Test User\",\n  \"mobileNumber\": \"9876543210\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}"
@@ -64,7 +72,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "request-otp"]
             },
-            "description": "Request OTP for signup. Sends a 6-digit OTP to the provided email address. OTP is valid for 10 minutes."
+            "description": "Step 1 of signup. Validates user details, stores them temporarily, and sends a 6-digit OTP to the provided email via Brevo. OTP is valid for 10 minutes."
           },
           "response": []
         },
@@ -78,6 +86,7 @@
                   "if (pm.response.code === 201) {",
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('userId', response.data.user.uid);",
+                  "    console.log('User registered. UID:', response.data.user.uid);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -86,12 +95,7 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"test@example.com\",\n  \"otp\": \"123456\"\n}"
@@ -101,7 +105,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "signup"]
             },
-            "description": "Verify OTP and complete user registration. Provide the email and 6-digit OTP received via email."
+            "description": "Step 2 of signup. Verifies the OTP, creates the user account in Supabase Auth and the public users table, and returns the new user profile."
           },
           "response": []
         },
@@ -116,6 +120,7 @@
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('authToken', response.data.token);",
                   "    pm.collectionVariables.set('userId', response.data.user.uid);",
+                  "    console.log('Token saved. User:', response.data.user.uid);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -124,12 +129,7 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}"
@@ -139,7 +139,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth"]
             },
-            "description": "Authenticate user with email and password"
+            "description": "Authenticate user with email and password. Returns a JWT access token and user profile. Token and userId are automatically saved to collection variables."
           },
           "response": []
         },
@@ -147,12 +147,7 @@
           "name": "Forgot Password",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"test@example.com\"\n}"
@@ -162,7 +157,25 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "forgot-password"]
             },
-            "description": "Send password reset email"
+            "description": "Generates a secure one-time reset token (valid 1 hour), stores it in the password_resets table, and sends a branded Brevo email with a reset link pointing to:\nhttps://www.yatrivojourneys.com/reset-password?token=<token>\n\nAlways returns a generic success response to prevent email enumeration."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"NewPassword@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reset-password"]
+            },
+            "description": "Validates the reset token from the email link, updates the user's password via Supabase admin API, and deletes the token (one-time use).\n\nCopy the token value from ?token=<value> in the reset link and set it as the resetToken variable.\n\nErrors:\n- 400: Missing fields / invalid or expired token / password too short (min 6 chars)\n- 404: No account found for that email\n- 500: Internal error"
           },
           "response": []
         },
@@ -171,14 +184,8 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
@@ -189,7 +196,96 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "delete"]
             },
-            "description": "Delete user account (requires authentication)"
+            "description": "Permanently deletes the user account from Supabase Auth and the public users table. Requires a valid Bearer token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Retrieve a list of all users from the public users table. Requires a valid Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"mobileNumber\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Create a new user profile in the public users table. Requires a valid Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "Retrieve a specific user's profile by their UUID. Requires a valid Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"mobileNumber\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "Update a user's profile details (fullName, mobileNumber). Requires a valid Bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "Delete a specific user's profile from the public users table by UUID. Requires a valid Bearer token."
           },
           "response": []
         }
@@ -208,6 +304,7 @@
                   "if (pm.response.code === 201) {",
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('bookingId', response.booking.id);",
+                  "    console.log('Booking created. ID:', response.booking.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -217,14 +314,8 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "body": {
               "mode": "raw",
@@ -235,7 +326,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "bookings"]
             },
-            "description": "Create a new booking for a tour package (requires authentication)"
+            "description": "Create a new booking for a tour package. Requires authentication. Also triggers a booking notification email to info@yatrivojourneys.com with the customer and package details."
           },
           "response": []
         },
@@ -243,18 +334,13 @@
           "name": "Get My Bookings",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/bookings",
               "host": ["{{baseUrl}}"],
               "path": ["api", "bookings"]
             },
-            "description": "Get all bookings for the authenticated user"
+            "description": "Get all bookings for the currently authenticated user, ordered by most recent first. Includes joined tour package details."
           },
           "response": []
         },
@@ -262,12 +348,7 @@
           "name": "Get Bookings by Status",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/bookings?status=pending",
               "host": ["{{baseUrl}}"],
@@ -276,11 +357,11 @@
                 {
                   "key": "status",
                   "value": "pending",
-                  "description": "Filter by booking status (pending, confirmed, completed, cancelled)"
+                  "description": "Filter by status: pending | confirmed | completed | cancelled"
                 }
               ]
             },
-            "description": "Get bookings filtered by status"
+            "description": "Get the authenticated user's bookings filtered by status."
           },
           "response": []
         },
@@ -288,18 +369,13 @@
           "name": "Get Single Booking",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "bookings", "{{bookingId}}"]
             },
-            "description": "Get a specific booking by ID"
+            "description": "Get a specific booking by its UUID. User can only access their own bookings."
           },
           "response": []
         },
@@ -308,14 +384,8 @@
           "request": {
             "method": "PATCH",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
             ],
             "body": {
               "mode": "raw",
@@ -326,7 +396,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "bookings", "{{bookingId}}"]
             },
-            "description": "Update booking status (pending, confirmed, completed, cancelled)"
+            "description": "Update the status of a booking. Allowed values: pending | confirmed | completed | cancelled"
           },
           "response": []
         },
@@ -334,18 +404,13 @@
           "name": "Delete Booking",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "bookings", "{{bookingId}}"]
             },
-            "description": "Delete a booking"
+            "description": "Permanently delete a booking by its UUID. Requires authentication."
           },
           "response": []
         }
@@ -364,6 +429,7 @@
                   "if (pm.response.code === 201) {",
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('categoryId', response.data.id);",
+                  "    console.log('Category created. ID:', response.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -372,25 +438,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "name",
-                  "value": "Honeymoon",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": []
-                }
+                { "key": "name", "value": "Honeymoon", "type": "text" },
+                { "key": "image", "type": "file", "src": [] }
               ]
             },
             "url": {
@@ -398,7 +451,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories"]
             },
-            "description": "Create a new trip category with name and image"
+            "description": "Create a new trip category with a name and image. Image is uploaded to Supabase Storage. Requires authentication."
           },
           "response": []
         },
@@ -412,7 +465,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories"]
             },
-            "description": "Get all trip categories (Public - No authentication required)"
+            "description": "Get all trip categories. Public — no authentication required."
           },
           "response": []
         },
@@ -426,7 +479,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
             },
-            "description": "Get a specific trip category by ID (Public - No authentication required)"
+            "description": "Get a specific trip category by its UUID. Public — no authentication required."
           },
           "response": []
         },
@@ -434,27 +487,12 @@
           "name": "Update Trip Category",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "name",
-                  "value": "Adventure",
-                  "type": "text",
-                  "description": "Optional: New category name"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": [],
-                  "description": "Optional: New image file"
-                }
+                { "key": "name", "value": "Adventure", "type": "text", "description": "Optional: new name" },
+                { "key": "image", "type": "file", "src": [], "description": "Optional: replacement image" }
               ]
             },
             "url": {
@@ -462,7 +500,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
             },
-            "description": "Update trip category name and/or image"
+            "description": "Update trip category name and/or image. Old image is deleted from storage when replaced. Requires authentication."
           },
           "response": []
         },
@@ -470,18 +508,13 @@
           "name": "Delete Trip Category",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/trip-categories/{{categoryId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "trip-categories", "{{categoryId}}"]
             },
-            "description": "Delete trip category and its image"
+            "description": "Delete a trip category and its associated image from Supabase Storage. Requires authentication."
           },
           "response": []
         }
@@ -500,6 +533,7 @@
                   "if (pm.response.code === 201) {",
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('destinationId', response.data.id);",
+                  "    console.log('Destination created. ID:', response.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -508,35 +542,14 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "placeName",
-                  "value": "Taj Mahal",
-                  "type": "text"
-                },
-                {
-                  "key": "city",
-                  "value": "Agra",
-                  "type": "text"
-                },
-                {
-                  "key": "tripCategoryId",
-                  "value": "{{categoryId}}",
-                  "type": "text"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": []
-                }
+                { "key": "placeName", "value": "Taj Mahal", "type": "text" },
+                { "key": "city", "value": "Agra", "type": "text" },
+                { "key": "tripCategoryId", "value": "{{categoryId}}", "type": "text" },
+                { "key": "image", "type": "file", "src": [] }
               ]
             },
             "url": {
@@ -544,7 +557,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations"]
             },
-            "description": "Create a new destination with place name, city, category, and image"
+            "description": "Create a new destination with place name, city, trip category, and an image. Requires authentication."
           },
           "response": []
         },
@@ -558,7 +571,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations"]
             },
-            "description": "Get all destinations (Public - No authentication required)"
+            "description": "Get all destinations. Public — no authentication required."
           },
           "response": []
         },
@@ -572,13 +585,10 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations"],
               "query": [
-                {
-                  "key": "categoryId",
-                  "value": "{{categoryId}}"
-                }
+                { "key": "categoryId", "value": "{{categoryId}}", "description": "UUID of the trip category" }
               ]
             },
-            "description": "Filter destinations by trip category (Public - No authentication required)"
+            "description": "Filter destinations by trip category UUID. Public — no authentication required."
           },
           "response": []
         },
@@ -592,7 +602,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations", "{{destinationId}}"]
             },
-            "description": "Get a specific destination by ID (Public - No authentication required)"
+            "description": "Get a specific destination by UUID. Public — no authentication required."
           },
           "response": []
         },
@@ -600,39 +610,14 @@
           "name": "Update Destination",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "placeName",
-                  "value": "Gateway of India",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "city",
-                  "value": "Mumbai",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "tripCategoryId",
-                  "value": "{{categoryId}}",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": [],
-                  "description": "Optional: New image"
-                }
+                { "key": "placeName", "value": "Gateway of India", "type": "text", "description": "Optional" },
+                { "key": "city", "value": "Mumbai", "type": "text", "description": "Optional" },
+                { "key": "tripCategoryId", "value": "{{categoryId}}", "type": "text", "description": "Optional" },
+                { "key": "image", "type": "file", "src": [], "description": "Optional: replacement image" }
               ]
             },
             "url": {
@@ -640,7 +625,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations", "{{destinationId}}"]
             },
-            "description": "Update destination details"
+            "description": "Update destination details and/or image. Requires authentication."
           },
           "response": []
         },
@@ -648,18 +633,13 @@
           "name": "Delete Destination",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/destinations/{{destinationId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "destinations", "{{destinationId}}"]
             },
-            "description": "Delete destination and its image"
+            "description": "Delete a destination and its stored image. Requires authentication."
           },
           "response": []
         }
@@ -678,6 +658,7 @@
                   "if (pm.response.code === 201) {",
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('packageId', response.data.id);",
+                  "    console.log('Package created. ID:', response.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -686,61 +667,19 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "placeName",
-                  "value": "Romantic Goa Getaway",
-                  "type": "text"
-                },
-                {
-                  "key": "city",
-                  "value": "Goa",
-                  "type": "text"
-                },
-                {
-                  "key": "priceRange",
-                  "value": "₹35,000 - ₹50,000",
-                  "type": "text"
-                },
-                {
-                  "key": "tripCategoryId",
-                  "value": "{{categoryId}}",
-                  "type": "text"
-                },
-                {
-                  "key": "overview",
-                  "value": "Experience the beautiful beaches of Goa with your loved one. This package includes luxurious accommodation, romantic candlelight dinners, and exciting water sports activities.",
-                  "type": "text"
-                },
-                {
-                  "key": "tourHighlights",
-                  "value": "[\"Beach Access\",\"Water Sports\",\"Candlelight Dinner\",\"5★ Resort\",\"Airport Transfers\"]",
-                  "type": "text",
-                  "description": "JSON array of highlights"
-                },
-                {
-                  "key": "image0",
-                  "type": "file",
-                  "src": []
-                },
-                {
-                  "key": "image1",
-                  "type": "file",
-                  "src": []
-                },
-                {
-                  "key": "image2",
-                  "type": "file",
-                  "src": []
-                }
+                { "key": "placeName", "value": "Romantic Goa Getaway", "type": "text" },
+                { "key": "city", "value": "Goa", "type": "text" },
+                { "key": "priceRange", "value": "₹35,000 - ₹50,000", "type": "text" },
+                { "key": "tripCategoryId", "value": "{{categoryId}}", "type": "text" },
+                { "key": "overview", "value": "Experience the beautiful beaches of Goa with your loved one. This package includes luxurious accommodation, romantic candlelight dinners, and exciting water sports activities.", "type": "text" },
+                { "key": "tourHighlights", "value": "[\"Beach Access\",\"Water Sports\",\"Candlelight Dinner\",\"5★ Resort\",\"Airport Transfers\"]", "type": "text", "description": "JSON-stringified array of highlights" },
+                { "key": "image0", "type": "file", "src": [], "description": "First image (required)" },
+                { "key": "image1", "type": "file", "src": [], "description": "Second image (optional)" },
+                { "key": "image2", "type": "file", "src": [], "description": "Third image (optional)" }
               ]
             },
             "url": {
@@ -748,7 +687,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages"]
             },
-            "description": "Create a new tour package with multiple images"
+            "description": "Create a new tour package with up to N images (image0, image1, …). tourHighlights must be a JSON-stringified array. Requires authentication."
           },
           "response": []
         },
@@ -762,7 +701,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages"]
             },
-            "description": "Get all tour packages (Public - No authentication required)"
+            "description": "Get all tour packages. Public — no authentication required."
           },
           "response": []
         },
@@ -776,13 +715,10 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages"],
               "query": [
-                {
-                  "key": "categoryId",
-                  "value": "{{categoryId}}"
-                }
+                { "key": "categoryId", "value": "{{categoryId}}", "description": "Filter by trip category UUID" }
               ]
             },
-            "description": "Filter packages by trip category (Public - No authentication required)"
+            "description": "Filter tour packages by trip category. Public — no authentication required."
           },
           "response": []
         },
@@ -796,13 +732,10 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages"],
               "query": [
-                {
-                  "key": "city",
-                  "value": "Goa"
-                }
+                { "key": "city", "value": "Goa", "description": "Filter by city name (case-insensitive)" }
               ]
             },
-            "description": "Filter packages by city (Public - No authentication required)"
+            "description": "Filter tour packages by city. Public — no authentication required."
           },
           "response": []
         },
@@ -816,7 +749,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages", "{{packageId}}"]
             },
-            "description": "Get a specific tour package by ID (Public - No authentication required)"
+            "description": "Get full details of a specific tour package by UUID. Public — no authentication required."
           },
           "response": []
         },
@@ -824,69 +757,19 @@
           "name": "Update Tour Package",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
-                {
-                  "key": "placeName",
-                  "value": "Updated Package Name",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "city",
-                  "value": "Goa",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "priceRange",
-                  "value": "₹40,000 - ₹55,000",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "tripCategoryId",
-                  "value": "{{categoryId}}",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "overview",
-                  "value": "Updated overview text",
-                  "type": "text",
-                  "description": "Optional"
-                },
-                {
-                  "key": "tourHighlights",
-                  "value": "[\"New Highlight 1\",\"New Highlight 2\"]",
-                  "type": "text",
-                  "description": "Optional: JSON array"
-                },
-                {
-                  "key": "newImage0",
-                  "type": "file",
-                  "src": [],
-                  "description": "Optional: Add new images"
-                },
-                {
-                  "key": "newImage1",
-                  "type": "file",
-                  "src": [],
-                  "description": "Optional: Add new images"
-                },
-                {
-                  "key": "imagesToRemove",
-                  "value": "[]",
-                  "type": "text",
-                  "description": "Optional: JSON array of image URLs to remove"
-                }
+                { "key": "placeName", "value": "Updated Package Name", "type": "text", "description": "Optional" },
+                { "key": "city", "value": "Goa", "type": "text", "description": "Optional" },
+                { "key": "priceRange", "value": "₹40,000 - ₹55,000", "type": "text", "description": "Optional" },
+                { "key": "tripCategoryId", "value": "{{categoryId}}", "type": "text", "description": "Optional" },
+                { "key": "overview", "value": "Updated overview text", "type": "text", "description": "Optional" },
+                { "key": "tourHighlights", "value": "[\"New Highlight 1\",\"New Highlight 2\"]", "type": "text", "description": "Optional: JSON array" },
+                { "key": "newImage0", "type": "file", "src": [], "description": "Optional: new image to add" },
+                { "key": "newImage1", "type": "file", "src": [], "description": "Optional: new image to add" },
+                { "key": "imagesToRemove", "value": "[]", "type": "text", "description": "Optional: JSON array of existing image URLs to delete" }
               ]
             },
             "url": {
@@ -894,7 +777,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages", "{{packageId}}"]
             },
-            "description": "Update tour package with optional image add/remove"
+            "description": "Update a tour package. All fields optional. Use newImageN keys to add images, imagesToRemove (JSON array of URLs) to delete existing ones. Requires authentication."
           },
           "response": []
         },
@@ -902,18 +785,13 @@
           "name": "Delete Tour Package",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/tour-packages/{{packageId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "tour-packages", "{{packageId}}"]
             },
-            "description": "Delete tour package and all its images"
+            "description": "Delete a tour package and all its images from Supabase Storage. Requires authentication."
           },
           "response": []
         }
@@ -926,18 +804,13 @@
           "name": "Get All Bookings",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/bookings",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "bookings"]
             },
-            "description": "Get all bookings with statistics (Admin only)"
+            "description": "Get all bookings across all users with statistics (total, pending, confirmed, completed, cancelled, totalRevenue). Admin use — uses service role to bypass RLS."
           },
           "response": []
         },
@@ -945,25 +818,16 @@
           "name": "Get Bookings by Status",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/bookings?status=pending",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "bookings"],
               "query": [
-                {
-                  "key": "status",
-                  "value": "pending",
-                  "description": "Filter by status (pending, confirmed, completed, cancelled)"
-                }
+                { "key": "status", "value": "pending", "description": "Filter by status: pending | confirmed | completed | cancelled" }
               ]
             },
-            "description": "Filter all bookings by status"
+            "description": "Filter all bookings by status. Admin use only."
           },
           "response": []
         },
@@ -971,25 +835,16 @@
           "name": "Get Bookings by User",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/bookings?userId={{userId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "bookings"],
               "query": [
-                {
-                  "key": "userId",
-                  "value": "{{userId}}",
-                  "description": "Filter by user ID"
-                }
+                { "key": "userId", "value": "{{userId}}", "description": "Filter by user UUID" }
               ]
             },
-            "description": "Get all bookings for a specific user"
+            "description": "Get all bookings for a specific user by UUID. Admin use only."
           },
           "response": []
         },
@@ -997,25 +852,16 @@
           "name": "Get Recent Bookings",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{authToken}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
             "url": {
               "raw": "{{baseUrl}}/api/admin/bookings?limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "bookings"],
               "query": [
-                {
-                  "key": "limit",
-                  "value": "10",
-                  "description": "Limit number of results"
-                }
+                { "key": "limit", "value": "10", "description": "Max number of results to return" }
               ]
             },
-            "description": "Get most recent bookings (limit results)"
+            "description": "Get the most recent N bookings ordered by created_at descending. Admin use only."
           },
           "response": []
         }

@@ -455,3 +455,148 @@ export async function sendBookingNotificationEmail(params: SendBookingNotificati
         return false;
     }
 }
+
+export interface SendPasswordResetEmailParams {
+    email: string;
+    fullName: string;
+    resetLink: string;
+}
+
+/**
+ * Send password reset email via Brevo with a branded template
+ */
+export async function sendPasswordResetEmail({ email, fullName, resetLink }: SendPasswordResetEmailParams): Promise<boolean> {
+    try {
+        if (!apiKey) {
+            console.error('❌ [Brevo] Cannot send password reset email: BREVO_API_KEY is missing.');
+            return false;
+        }
+
+        if (!senderEmail) {
+            console.error('❌ [Brevo] Cannot send password reset email: BREVO_SENDER_EMAIL is not set.');
+            return false;
+        }
+
+        const result = await brevo.transactionalEmails.sendTransacEmail({
+            subject: 'Reset Your Yatrivo Password',
+            to: [{ email, name: fullName }],
+            sender: { name: senderName, email: senderEmail! },
+            textContent: `Hello ${fullName},\n\nYou requested a password reset for your Yatrivo account.\n\nClick the link below to set a new password (valid for 1 hour):\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nThe Yatrivo Team`,
+            htmlContent: `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                    <title>Reset Your Yatrivo Password</title>
+                </head>
+                <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 0;">
+                        <tr>
+                            <td align="center">
+                                <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+
+                                    <!-- Header -->
+                                    <tr>
+                                        <td style="background:linear-gradient(135deg,#F97316 0%,#ea6a00 100%);padding:36px 40px 28px;text-align:center;">
+                                            <table cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+                                                <tr>
+                                                    <td>
+                                                        <span style="font-size:34px;font-weight:900;color:#ffffff;letter-spacing:2px;font-family:'Segoe UI',Arial,sans-serif;">YATRI</span><span style="font-size:34px;font-weight:900;color:#ffffff;letter-spacing:2px;font-family:'Segoe UI',Arial,sans-serif;">V</span><span style="font-size:32px;color:#2DD4BF;font-weight:900;">✈</span><span style="font-size:34px;font-weight:900;color:#ffffff;letter-spacing:2px;font-family:'Segoe UI',Arial,sans-serif;">O</span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            <p style="margin:0;color:rgba(255,255,255,0.90);font-size:14px;letter-spacing:1px;text-transform:uppercase;font-weight:500;">Premium Travel Experiences</p>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Teal accent bar -->
+                                    <tr>
+                                        <td style="background-color:#2DD4BF;height:4px;"></td>
+                                    </tr>
+
+                                    <!-- Body -->
+                                    <tr>
+                                        <td style="padding:40px 48px 32px;">
+
+                                            <!-- Lock icon badge -->
+                                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                                                <tr>
+                                                    <td align="center">
+                                                        <div style="display:inline-block;width:64px;height:64px;background:linear-gradient(135deg,#fff7ed,#fff);border:2px solid #F97316;border-radius:50%;text-align:center;line-height:64px;font-size:28px;">🔐</div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1e293b;text-align:center;">Reset Your Password</h2>
+                                            <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.7;text-align:center;">Hello <strong style="color:#1e293b;">${fullName}</strong>, we received a request to reset the password for your Yatrivo account. Click the button below to choose a new password.</p>
+
+                                            <!-- CTA Button -->
+                                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                                                <tr>
+                                                    <td align="center">
+                                                        <a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,#F97316 0%,#ea6a00 100%);color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 40px;border-radius:10px;letter-spacing:0.5px;">Reset My Password →</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <!-- Expiry badge -->
+                                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                                                <tr>
+                                                    <td align="center">
+                                                        <span style="display:inline-block;background-color:#fef9c3;border:1px solid #fde047;border-radius:99px;padding:8px 20px;font-size:13px;color:#854d0e;font-weight:600;">⏱ This link expires in 1 hour</span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <!-- Divider -->
+                                            <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 20px;" />
+
+                                            <!-- Fallback link -->
+                                            <p style="margin:0 0 8px;font-size:13px;color:#64748b;">If the button above doesn't work, copy and paste this link into your browser:</p>
+                                            <p style="margin:0 0 24px;font-size:12px;word-break:break-all;"><a href="${resetLink}" style="color:#F97316;text-decoration:none;">${resetLink}</a></p>
+
+                                            <!-- Security warning -->
+                                            <table width="100%" cellpadding="0" cellspacing="0">
+                                                <tr>
+                                                    <td style="background-color:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:14px 16px;">
+                                                        <p style="margin:0;font-size:13px;color:#b91c1c;font-weight:500;">🔒 If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style="background-color:#1e293b;padding:24px 48px;text-align:center;">
+                                            <p style="margin:0 0 6px;font-size:18px;font-weight:900;color:#F97316;letter-spacing:2px;">YATRIVO</p>
+                                            <p style="margin:0 0 12px;font-size:12px;color:#94a3b8;">Discover the Soul of India</p>
+                                            <p style="margin:0;font-size:11px;color:#64748b;">&copy; 2026 Yatrivo. All rights reserved.</p>
+                                        </td>
+                                    </tr>
+
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+            `,
+        });
+
+        const messageIdentifier = result?.messageId || result?.messageIds?.[0];
+        if (!messageIdentifier) {
+            console.error('❌ [Brevo] Password reset email accepted but no messageId returned:', result);
+            return false;
+        }
+
+        console.log(`✅ [Brevo] Password reset email sent to ${email}. messageId: ${messageIdentifier}`);
+        return true;
+    } catch (error: any) {
+        const statusCode = error?.statusCode || error?.status || error?.response?.status;
+        const errorBody = error?.body || error?.response?.data || error?.message;
+        console.error('❌ [Brevo] Password reset email send error:', { statusCode, error: errorBody });
+        return false;
+    }
+}
