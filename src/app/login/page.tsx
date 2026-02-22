@@ -12,6 +12,11 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (email !== 'info@yatrivojourneys.com') {
+      setError('Access denied. Only authorized email is allowed.');
+      return;
+    }
     
     try {
       setIsLoading(true);
